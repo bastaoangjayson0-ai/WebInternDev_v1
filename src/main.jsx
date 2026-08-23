@@ -233,6 +233,8 @@ function MeetingIcon({type}){
   end:<><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></>,
   leave:<><path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M13 8l4 4-4 4M8 12h9"/></>,
   fitScreen:<><rect x="5" y="5" width="11" height="13" rx="1.5"/><rect x="8" y="2" width="11" height="13" rx="1.5"/></>,
+  fullscreen:<><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"/></>,
+  fullscreenExit:<><path d="M9 3v6H3M15 3v6h6M9 21v-6H3M15 21v-6h6"/></>,
  };
  return <svg className="meeting-icon-svg" viewBox="0 0 24 24" aria-hidden="true">{paths[type]||paths.people}</svg>;
 }
@@ -244,6 +246,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const [screenTrack,setScreenTrack]=useState(null);
  const [remoteScreenTrack,setRemoteScreenTrack]=useState(null);
  const [screenAspect,setScreenAspect]=useState(16/9);
+ const [screenFullscreen,setScreenFullscreen]=useState(false);
  const [chat,setChat]=useState([]);
  const [message,setMessage]=useState('');
  const [micError,setMicError]=useState('');
@@ -254,6 +257,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const seenChatIdsRef=useRef(new Set());
  const mounted=useRef(true);
  const screenTrackRef=useRef(null);
+ const mainTileRef=useRef(null);
  const wsUrlHint=import.meta.env.VITE_LIVEKIT_URL || '';
  const MICROPHONE_CAPTURE_OPTIONS={echoCancellation:true,noiseSuppression:true,autoGainControl:false,channelCount:1,latency:0.02};
 
@@ -558,16 +562,37 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const mainScreen=screenTrack||screenFromRemote;
  const remoteScreenActive=Boolean(screenFromRemote);
  const showingScreen=Boolean(mainScreen);
+ const toggleScreenFullscreen=async()=>{
+   const el=mainTileRef.current;
+   if(!el)return;
+   try{
+     if(document.fullscreenElement || document.webkitFullscreenElement){
+       if(document.exitFullscreen) await document.exitFullscreen();
+       else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+     }else if(el.requestFullscreen){
+       await el.requestFullscreen();
+     }else if(el.webkitRequestFullscreen){
+       el.webkitRequestFullscreen();
+     }
+   }catch(err){console.error('Fullscreen failed:',err);setToast?.('Fullscreen is not available in this browser.');}
+ };
+ useEffect(()=>{
+   const update=()=>setScreenFullscreen(Boolean(document.fullscreenElement||document.webkitFullscreenElement));
+   document.addEventListener('fullscreenchange',update);
+   document.addEventListener('webkitfullscreenchange',update);
+   return()=>{document.removeEventListener('fullscreenchange',update);document.removeEventListener('webkitfullscreenchange',update)};
+ },[]);
  return <section className="meeting">
    <div className="meeting-head"><div><b>{room.title}</b><span className="muted"> • {room.participants}/50</span></div><span className={connection==='connected'?'live':'connection-pill'}>{connection==='connected'?'● LIVE':connection==='connecting'?'Connecting…':connection.startsWith('error:')?'Connection error':'Reconnecting…'}</span></div>
    {connection.startsWith('error:')&&<div className="meeting-error">{connection.slice(6)}<button className="ghost small" onClick={()=>window.location.reload()}>Reload</button></div>}
    <div className={`stage ${pinned&&mainScreen?'pinned':''} ${showingScreen?'screen-active':''}`}>
-     <div className="main-tile" style={showingScreen?{'--screen-aspect':screenAspect}:undefined}>
-       {showingScreen?<LiveVideo track={mainScreen} className="screen-video" label={screenTrack?`${name} is sharing screen`:'Host is sharing screen'} onAspectRatio={setScreenAspect} />:<div className="main-content">
-         {sharing&&screenTrack?<LiveVideo track={screenTrack} className="screen-video" label={`${name} is sharing screen`} onAspectRatio={setScreenAspect} />:camera&&localTracks.find(t=>t.kind==='video')?<LiveVideo track={localTracks.find(t=>t.kind==='video')} className="local-video" label={name}/>:<div className="avatar-view"><img src={avatar}/><span>{name}</span></div>}
-       </div>}
-       {(sharing||remoteScreenActive)&&<span className="share-label">🖥️ {screenTrack?`${name} is sharing screen`:'Host is sharing screen'}</span>}
-       {showingScreen&&<button type="button" className="screen-fit-button" aria-label="Focus shared screen" title="Focus shared screen" onClick={()=>setPinned(p=>!p)}><MeetingIcon type="fitScreen"/></button>}
+     <div ref={mainTileRef} className="main-tile" style={showingScreen?{'--screen-aspect':screenAspect}:undefined}>
+       {showingScreen ? <LiveVideo track={mainScreen} className="screen-video" onAspectRatio={setScreenAspect} /> :
+         <div className="screen-share-placeholder" role="status" aria-live="polite">
+           <span>Screen Share</span>
+         </div>
+       }
+       {showingScreen&&<button type="button" className="screen-fit-button" aria-label={screenFullscreen?'Exit full screen':'Full screen shared screen'} title={screenFullscreen?'Exit full screen':'Full screen'} onClick={toggleScreenFullscreen}><MeetingIcon type={screenFullscreen?'fullscreenExit':'fullscreen'}/></button>}
      </div>
      <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=><ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar}/>)}</div>
    </div>

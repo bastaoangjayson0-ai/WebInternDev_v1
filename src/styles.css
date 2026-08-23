@@ -287,3 +287,20 @@
 @media (max-width:600px){
  .screen-fit-button{right:8px;bottom:8px;width:38px;height:38px}
 }
+
+/* v1.6.2: any participant can view a shared screen in browser fullscreen. */
+.main-tile:fullscreen .screen-fit-button,.main-tile:-webkit-full-screen .screen-fit-button{position:absolute;top:16px;right:16px;z-index:20;opacity:.92;}
+.main-tile:fullscreen .screen-video-wrap,.main-tile:-webkit-full-screen .screen-video-wrap{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;}
+.main-tile:fullscreen video,.main-tile:-webkit-full-screen video{width:100%!important;height:100%!important;object-fit:contain!important;}
+
+
+/* v1.6.3: clean screen-share waiting state. The stage stays reserved for presentation until the host starts sharing. */
+.screen-share-placeholder{
+  width:100%;height:100%;min-height:inherit;
+  display:flex;align-items:center;justify-content:center;
+  color:#d9e2e7;font-size:22px;font-weight:700;letter-spacing:.01em;
+  background:#16232b;
+}
+.screen-share-placeholder span{opacity:.95}
+.main-tile:fullscreen .screen-share-placeholder,.main-tile:-webkit-full-screen .screen-share-placeholder{height:100vh;background:#05090d}
+@media (max-width:700px){.screen-share-placeholder{font-size:19px}}
