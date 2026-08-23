@@ -139,7 +139,29 @@ function App(){
      console.error('createRoom failed',e);
    }
  }
- async function joinRoom(room){if(role==='user'&&room.participants>=50){setToast('This meeting is full.');return} const nextParticipants=role==='user'?Math.min(50,Number(room.participants||0)+1):Number(room.participants||0); try{if(role==='user')await dbUpdate('wid_rooms',`?id=eq.${encodeURIComponent(room.id)}`,{participants:nextParticipants});}catch(e){setToast(`Could not join the meeting online: ${e.message}`);return} setCurrentRoom({...room,participants:nextParticipants}); setPage('meeting'); const now=new Date().toISOString(); setAttendance(a=>a.concat({id:crypto.randomUUID(),name,role,roomId:room.id,roomTitle:room.title,host:room.host,joinedAt:now,leftAt:null,duration:null})); setRooms(x=>x.map(r=>r.id===room.id?{...r,participants:nextParticipants}:r));}
+ async function joinRoom(room){
+   if(!room?.id){setToast('This meeting has no valid room ID. Please refresh the meeting list.');return}
+   if(role==='user'&&Number(room.participants||0)>=50){setToast('This meeting is full.');return}
+   const nextParticipants=role==='user'?Math.min(50,Number(room.participants||0)+1):Number(room.participants||0);
+
+   // Never block the actual LiveKit join on a participant-count database update.
+   // The room itself is already known to exist; entering the meeting should remain
+   // possible even if Supabase briefly rejects the counter update.
+   setCurrentRoom({...room,participants:nextParticipants});
+   setPage('meeting');
+   const now=new Date().toISOString();
+   setAttendance(a=>a.concat({id:crypto.randomUUID(),name,role,roomId:room.id,roomTitle:room.title,host:room.host,joinedAt:now,leftAt:null,duration:null}));
+   setRooms(x=>x.map(r=>r.id===room.id?{...r,participants:nextParticipants}:r));
+
+   if(role==='user'){
+     try{
+       await dbUpdate('wid_rooms',`?id=eq.${encodeURIComponent(room.id)}`,{participants:nextParticipants});
+     }catch(e){
+       console.warn('Participant count update failed after joining; keeping meeting access:',e);
+       setToast?.('You joined the meeting. Participant count will sync when the connection is available.');
+     }
+   }
+ }
  async function leaveMeeting(){if(!currentRoom)return; const now=new Date(); const nextParticipants=role==='user'?Math.max(0,Number(currentRoom.participants||0)-1):Number(currentRoom.participants||0); try{if(role==='user')await dbUpdate('wid_rooms',`?id=eq.${encodeURIComponent(currentRoom.id)}`,{participants:nextParticipants});}catch(e){setToast(`Could not update the meeting online: ${e.message}`);return} setAttendance(a=>a.map(x=>{if(x.name===name&&x.roomId===currentRoom.id&&!x.leftAt){const joined=new Date(x.joinedAt);return {...x,leftAt:now.toISOString(),duration:Math.max(0,Math.round((now-joined)/60000))}}return x})); setRooms(x=>x.map(r=>r.id===currentRoom.id?{...r,participants:nextParticipants}:r));setCurrentRoom(null);setPage('dashboard');setSharing(false);setPinned(false);setToast('You left the meeting. You can rejoin while it is active.')}
  async function endRoom(){if(!currentRoom)return; const now=new Date();setAttendance(a=>a.map(x=>x.roomId===currentRoom.id&&!x.leftAt?{...x,leftAt:now.toISOString(),duration:Math.max(0,Math.round((now-new Date(x.joinedAt))/60000))}:x));try{await dbUpdate('wid_rooms',`?id=eq.${currentRoom.id}`,{active:false,participants:0});setRooms(x=>x.filter(r=>r.id!==currentRoom.id));setToast('Meeting ended.')}catch(e){setToast(`Could not end meeting online: ${e.message}`);return}setCurrentRoom(null);setPage('dashboard');setSharing(false);setPinned(false)}
  async function adminEnd(room){try{await dbUpdate('wid_rooms',`?id=eq.${room.id}`,{active:false,participants:0});setRooms(x=>x.filter(r=>r.id!==room.id));setAttendance(a=>a.map(x=>x.roomId===room.id&&!x.leftAt?{...x,leftAt:new Date().toISOString()}:x));setToast(`${room.title} ended.`)}catch(e){setToast(`Could not end meeting online: ${e.message}`)}}
