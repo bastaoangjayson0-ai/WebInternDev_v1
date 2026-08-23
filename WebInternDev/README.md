@@ -1,8 +1,8 @@
-# WebInternDev
+# WebInternDev V1.0.1
 
-Responsive Google-Meet-style frontend prototype for the planned WebInternDev platform.
+Responsive Google-Meet-style frontend prototype for WebInternDev.
 
-## Included now
+## Included
 - WebInternDev branding and provided logo
 - First screen: Admin / Host / User
 - Demo authentication flow
@@ -15,6 +15,8 @@ Responsive Google-Meet-style frontend prototype for the planned WebInternDev pla
 - Responsive meeting layout
 - Rejoin/leave UI foundation
 - Local demo room persistence via localStorage
+- Vercel-ready Vite configuration
+- SPA fallback to prevent Vercel 404s on application routes
 
 ## Demo credentials
 Admin name: `Bastaoang Jayson A`
@@ -22,15 +24,7 @@ Admin password: `webinternDEV`
 Host password: `BSIT`
 User password: `CRT-NEUST-GSC`
 
-## Important production note
-This build is a frontend prototype. The real 50-participant multi-user system should connect the UI to:
-- Supabase Auth + Postgres for authentication, meetings, attendance and history.
-- LiveKit Cloud for realtime WebRTC media, screen sharing and reconnection.
-- Vercel for the web application.
-
-Do not put production passwords or LiveKit server secrets in browser code. Use Supabase Auth and server-side token generation for production.
-
-## Run
+## Run locally
 ```bash
 npm install
 npm run dev
@@ -40,4 +34,18 @@ npm run dev
 ```bash
 npm run build
 ```
-Then deploy the generated `dist` directory using Vercel or another static host.
+
+## Vercel deployment
+Import this project as a Vite project. Keep the **Root Directory** set to the folder containing `package.json` (the WebInternDev folder if the ZIP is extracted first).
+
+The included `vercel.json` explicitly builds with `npm run build`, serves `dist`, and provides an SPA fallback so direct routes do not return Vercel `404: NOT_FOUND`.
+
+If the Vercel project already exists, redeploy this version after replacing the old project files. If the project was configured with a different Root Directory, change it to the directory containing `package.json`.
+
+## Production architecture
+The current build is a frontend prototype. For real multi-user meetings, connect:
+- Supabase Auth + Postgres for authentication, meetings, attendance and history.
+- LiveKit Cloud for realtime WebRTC media, screen sharing and reconnection.
+- Vercel for the web application.
+
+Do not put production passwords or LiveKit server secrets in browser code. Use secure backend/token generation for production.
