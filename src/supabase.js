@@ -5,6 +5,7 @@ const ENV_SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 // The setup checker explicitly warns when Vercel environment variables are missing.
 const SUPABASE_URL = ENV_SUPABASE_URL || 'https://aihtqibixooyafbivklo.supabase.co';
 const SUPABASE_KEY = ENV_SUPABASE_KEY || 'sb_publishable_R8TTr6JAKXiTmwWaNawUKA_XyTYPexp';
+export const usingBuiltInSupabaseConfig = !ENV_SUPABASE_URL || !ENV_SUPABASE_KEY;
 
 export const supabaseConfig = { url: SUPABASE_URL, key: SUPABASE_KEY, envUrlConfigured: Boolean(ENV_SUPABASE_URL), envKeyConfigured: Boolean(ENV_SUPABASE_KEY) };
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { realtime: { params: { eventsPerSecond: 10 } } });
@@ -77,12 +78,14 @@ export async function checkSupabaseSetup() {
     {
       name: 'VITE_SUPABASE_URL',
       configured: supabaseConfig.envUrlConfigured,
-      value: supabaseConfig.envUrlConfigured ? 'Configured' : 'Missing (the app is using its built-in fallback URL)'
+      fallback: !supabaseConfig.envUrlConfigured,
+      value: supabaseConfig.envUrlConfigured ? 'Configured in Vercel' : 'Using the app built-in fallback URL. This is usable for this deployment, but Vercel env vars are recommended.'
     },
     {
       name: 'VITE_SUPABASE_PUBLISHABLE_KEY',
       configured: supabaseConfig.envKeyConfigured,
-      value: supabaseConfig.envKeyConfigured ? 'Configured' : 'Missing (the app is using its built-in fallback key)'
+      fallback: !supabaseConfig.envKeyConfigured,
+      value: supabaseConfig.envKeyConfigured ? 'Configured in Vercel' : 'Using the app built-in fallback publishable key. This is usable for this deployment, but Vercel env vars are recommended.'
     }
   ];
   if (!SUPABASE_URL) return { ok: false, env, tables: [], summary: 'Supabase URL is missing.' };
@@ -91,9 +94,14 @@ export async function checkSupabaseSetup() {
   const missing = tables.filter(t => t.status === 'missing');
   const blocked = tables.filter(t => t.status === 'rls');
   const failed = tables.filter(t => !['ok', 'missing', 'rls'].includes(t.status));
-  let summary = 'Supabase database setup is healthy.';
-  if (missing.length) summary = `Missing table${missing.length > 1 ? 's' : ''}: ${missing.map(t => `public.${t.table}`).join(', ')}.`;
-  else if (blocked.length) summary = `RLS is blocking access to: ${blocked.map(t => `public.${t.table}`).join(', ')}.`;
-  else if (failed.length) summary = `Supabase checks failed for: ${failed.map(t => `public.${t.table}`).join(', ')}.`;
-  return { ok: tables.every(t => t.status === 'ok') && env.every(e => e.configured), env, tables, summary };
+  const roomTable = tables.find(t => t.table === 'wid_rooms');
+  let summary = 'Supabase database setup is healthy. Active rooms can be shared between Host and User devices.';
+  if (roomTable?.status === 'missing') summary = 'Room sharing is NOT ready: public.wid_rooms is missing. Run supabase_schema.sql in Supabase SQL Editor.';
+  else if (roomTable?.status === 'rls') summary = 'Room sharing is BLOCKED: public.wid_rooms exists but its RLS policy blocks the app.';
+  else if (roomTable?.status !== 'ok') summary = `Room sharing check failed for public.wid_rooms: ${roomTable?.message || 'unknown error'}.`;
+  else if (missing.length) summary = `Room sharing is ready, but optional table${missing.length > 1 ? 's are' : ' is'} missing: ${missing.map(t => `public.${t.table}`).join(', ')}.`;
+  else if (blocked.length) summary = `Room sharing is ready, but RLS blocks: ${blocked.map(t => `public.${t.table}`).join(', ')}.`;
+  else if (failed.length) summary = `Room sharing is ready, but some optional checks failed: ${failed.map(t => `public.${t.table}`).join(', ')}.`;
+  const roomReady = roomTable?.status === 'ok';
+  return { ok: roomReady, roomReady, env, tables, summary };
 }

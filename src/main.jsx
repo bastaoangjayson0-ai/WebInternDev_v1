@@ -25,23 +25,36 @@ function App(){
  useEffect(()=>{
    let cancelled=false;
    (async()=>{
+     // Room visibility is the critical path. Do not let an optional table
+     // (users, attendance, or settings) prevent the room list from loading.
      try{
-       const [rr,uu,aa,ss]=await Promise.all([
-         dbList('wid_rooms','?select=*&active=eq.true&order=created_at.desc'),
-         dbList('wid_users','?select=*'),
-         dbList('wid_attendance','?select=*&order=joined_at.desc'),
-         dbList('wid_settings','?select=*&id=eq.1')
-       ]);
+       const rr=await dbList('wid_rooms','?select=*&active=eq.true&order=created_at.desc');
        if(cancelled)return;
-       setSyncStatus('online');
        setRooms(Array.isArray(rr)?rr.map(mapRoom):[]);
-       if(Array.isArray(uu))setKnownUsers(uu.map(u=>({name:u.name,role:u.role})));
-       if(Array.isArray(aa))setAttendance(aa.map(mapAttendance));
-       if(Array.isArray(ss)&&ss[0])setCredentials(c=>({...c,hostPassword:ss[0].host_password,userPassword:ss[0].user_password}));
+       setSyncStatus('online');
      }catch(e){
        if(cancelled)return;
        setSyncStatus('error');
-       console.error('Supabase initial sync unavailable:',e);
+       console.error('Supabase room sync unavailable:',e);
+     }
+
+     // These are useful for the rest of the app, but must not block room
+     // discovery when their tables have not been created yet.
+     const optionalChecks=[
+       ['users',()=>dbList('wid_users','?select=*')],
+       ['attendance',()=>dbList('wid_attendance','?select=*&order=joined_at.desc')],
+       ['settings',()=>dbList('wid_settings','?select=*&id=eq.1')]
+     ];
+     for(const [kind,load] of optionalChecks){
+       try{
+         const data=await load();
+         if(cancelled) return;
+         if(kind==='users'&&Array.isArray(data))setKnownUsers(data.map(u=>({name:u.name,role:u.role})));
+         if(kind==='attendance'&&Array.isArray(data))setAttendance(data.map(mapAttendance));
+         if(kind==='settings'&&Array.isArray(data)&&data[0])setCredentials(c=>({...c,hostPassword:data[0].host_password,userPassword:data[0].user_password}));
+       }catch(e){
+         console.warn(`Optional Supabase ${kind} sync unavailable:`,e.message);
+       }
      }
    })();
    return()=>{cancelled=true};
@@ -66,8 +79,10 @@ function App(){
      })
      .subscribe(status=>{
        if(!mounted)return;
-       if(status==='SUBSCRIBED')setSyncStatus('online');
-       else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')setSyncStatus('error');
+       // Realtime subscription status is separate from REST/database sync.
+       // A realtime connection alone must not make the dashboard claim that
+       // rooms are available when the REST table is missing or blocked.
+       if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')console.warn('Room realtime subscription:',status);
      });
    return()=>{mounted=false;supabase.removeChannel(channel)};
  },[]);
@@ -113,7 +128,7 @@ function App(){
    const id=crypto.randomUUID();
    const createdAt=new Date().toISOString();
    try{
-     const rows=await dbUpsert('wid_rooms',{id,title:title.trim(),host:name,participants:0,active:true,created_at:createdAt});
+     const rows=await dbInsert('wid_rooms',{id,title:title.trim(),host:name,participants:0,active:true,created_at:createdAt});
      const saved=Array.isArray(rows)&&rows[0]?mapRoom(rows[0]):{id,title:title.trim(),host:name,participants:0,active:true,createdAt};
      setRooms(prev=>[saved,...prev.filter(r=>r.id!==saved.id)]);
      setSyncStatus('online');
@@ -124,8 +139,8 @@ function App(){
      console.error('createRoom failed',e);
    }
  }
- function joinRoom(room){if(role==='user'&&room.participants>=50){setToast('This meeting is full.');return} setCurrentRoom(room); setPage('meeting'); const now=new Date().toISOString(); setAttendance(a=>a.concat({id:crypto.randomUUID(),name,role,roomId:room.id,roomTitle:room.title,host:room.host,joinedAt:now,leftAt:null,duration:null})); setRooms(x=>x.map(r=>r.id===room.id?{...r,participants:Math.min(50,r.participants+(role==='user'?1:0))}:r));}
- function leaveMeeting(){if(!currentRoom)return; const now=new Date(); setAttendance(a=>a.map(x=>{if(x.name===name&&x.roomId===currentRoom.id&&!x.leftAt){const joined=new Date(x.joinedAt);return {...x,leftAt:now.toISOString(),duration:Math.max(0,Math.round((now-joined)/60000))}}return x})); setRooms(x=>x.map(r=>r.id===currentRoom.id?{...r,participants:Math.max(0,r.participants-(role==='user'?1:0))}:r));setCurrentRoom(null);setPage('dashboard');setSharing(false);setPinned(false);setToast('You left the meeting. You can rejoin while it is active.')}
+ async function joinRoom(room){if(role==='user'&&room.participants>=50){setToast('This meeting is full.');return} const nextParticipants=role==='user'?Math.min(50,Number(room.participants||0)+1):Number(room.participants||0); try{if(role==='user')await dbUpdate('wid_rooms',`?id=eq.${encodeURIComponent(room.id)}`,{participants:nextParticipants});}catch(e){setToast(`Could not join the meeting online: ${e.message}`);return} setCurrentRoom({...room,participants:nextParticipants}); setPage('meeting'); const now=new Date().toISOString(); setAttendance(a=>a.concat({id:crypto.randomUUID(),name,role,roomId:room.id,roomTitle:room.title,host:room.host,joinedAt:now,leftAt:null,duration:null})); setRooms(x=>x.map(r=>r.id===room.id?{...r,participants:nextParticipants}:r));}
+ async function leaveMeeting(){if(!currentRoom)return; const now=new Date(); const nextParticipants=role==='user'?Math.max(0,Number(currentRoom.participants||0)-1):Number(currentRoom.participants||0); try{if(role==='user')await dbUpdate('wid_rooms',`?id=eq.${encodeURIComponent(currentRoom.id)}`,{participants:nextParticipants});}catch(e){setToast(`Could not update the meeting online: ${e.message}`);return} setAttendance(a=>a.map(x=>{if(x.name===name&&x.roomId===currentRoom.id&&!x.leftAt){const joined=new Date(x.joinedAt);return {...x,leftAt:now.toISOString(),duration:Math.max(0,Math.round((now-joined)/60000))}}return x})); setRooms(x=>x.map(r=>r.id===currentRoom.id?{...r,participants:nextParticipants}:r));setCurrentRoom(null);setPage('dashboard');setSharing(false);setPinned(false);setToast('You left the meeting. You can rejoin while it is active.')}
  async function endRoom(){if(!currentRoom)return; const now=new Date();setAttendance(a=>a.map(x=>x.roomId===currentRoom.id&&!x.leftAt?{...x,leftAt:now.toISOString(),duration:Math.max(0,Math.round((now-new Date(x.joinedAt))/60000))}:x));try{await dbUpdate('wid_rooms',`?id=eq.${currentRoom.id}`,{active:false,participants:0});setRooms(x=>x.filter(r=>r.id!==currentRoom.id));setToast('Meeting ended.')}catch(e){setToast(`Could not end meeting online: ${e.message}`);return}setCurrentRoom(null);setPage('dashboard');setSharing(false);setPinned(false)}
  async function adminEnd(room){try{await dbUpdate('wid_rooms',`?id=eq.${room.id}`,{active:false,participants:0});setRooms(x=>x.filter(r=>r.id!==room.id));setAttendance(a=>a.map(x=>x.roomId===room.id&&!x.leftAt?{...x,leftAt:new Date().toISOString()}:x));setToast(`${room.title} ended.`)}catch(e){setToast(`Could not end meeting online: ${e.message}`)}}
  function signOut(){setRole(null);setPage('entry');setName('');setPassword('');setCurrentRoom(null);setAdminView(null)}
@@ -158,13 +173,13 @@ function Dashboard({role,name,rooms,setRooms,syncStatus,onCreate,onJoin,onEnd,on
 function SupabaseSetupChecker({result,checking,onCheck}){
  const statusLabel=s=>s==='ok'?'OK':s==='missing'?'MISSING':s==='rls'?'RLS BLOCKED':s==='network'?'NETWORK ERROR':'ERROR';
  return <div className={`setup-checker ${result.ok?'setup-ok':'setup-fail'}`}>
-   <div className="setup-checker-head"><div><span className="eyebrow">Supabase Setup Checker</span><h2>{result.ok?'Database setup looks good':'Database setup needs attention'}</h2><p>{result.summary}</p></div><button className="ghost small" onClick={onCheck} disabled={checking}>{checking?'Checking…':'Run check again'}</button></div>
+   <div className="setup-checker-head"><div><span className="eyebrow">Supabase Setup Checker</span><h2>{result.ok?'Room sharing is ready':'Room sharing needs attention'}</h2><p>{result.summary}</p></div><button className="ghost small" onClick={onCheck} disabled={checking}>{checking?'Checking…':'Run check again'}</button></div>
    <div className="setup-grid">
-    <div className="setup-card"><b>Environment variables</b>{result.env.map(item=><div className="setup-row" key={item.name}><span className={item.configured?'setup-dot ok':'setup-dot fail'}>●</span><div><strong>{item.name}</strong><small>{item.value}</small></div></div>)}</div>
-    <div className="setup-card"><b>Required database tables</b>{result.tables.map(item=><div className="setup-row" key={item.table}><span className={item.status==='ok'?'setup-dot ok':'setup-dot fail'}>●</span><div><strong>public.{item.table}</strong><small>{statusLabel(item.status)} — {item.detail}</small></div></div>)}</div>
+    <div className="setup-card"><b>Supabase connection</b>{result.env.map(item=><div className="setup-row" key={item.name}><span className={item.configured?'setup-dot ok':item.fallback?'setup-dot warn':'setup-dot fail'}>●</span><div><strong>{item.name}</strong><small>{item.value}</small></div></div>)}</div>
+    <div className="setup-card"><b>Room-sharing database tables</b>{result.tables.map(item=><div className="setup-row" key={item.table}><span className={item.status==='ok'?'setup-dot ok':'setup-dot fail'}>●</span><div><strong>public.{item.table}</strong><small>{statusLabel(item.status)} — {item.detail}</small></div></div>)}</div>
    </div>
-   {!result.ok&&<div className="setup-next"><strong>What to do:</strong> Open Supabase → SQL Editor → run the project's <code>supabase_schema.sql</code>. If a table says <b>RLS BLOCKED</b>, check its policies. If an environment variable says missing, add it in Vercel → Project Settings → Environment Variables, then redeploy.</div>}
-   {result.ok&&<div className="setup-next setup-next-good">✓ Supabase REST access is working for all required tables. You can now create and publish meetings.</div>}
+   {!result.ok&&<div className="setup-next"><strong>What to do:</strong> Open Supabase → SQL Editor → run the project's <code>supabase_schema.sql</code>. If <b>public.wid_rooms</b> says MISSING, run <code>supabase_schema.sql</code>. If it says <b>RLS BLOCKED</b>, check its policies. The built-in Supabase fallback can work, but Vercel environment variables are recommended for production.</div>}
+   {result.ok&&<div className="setup-next setup-next-good">✓ public.wid_rooms is reachable. A Host-created active room will be visible to Users on the same deployment.</div>}
  </div>
 }
 function AdminControl({title,desc,onClick,icon}){return <button className="admin-control" onClick={onClick}><span className="admin-control-icon">{icon==='users'?'◎':icon==='lock'?'⌑':'▣'}</span><span><b>{title}</b><small>{desc}</small></span><strong>Open →</strong></button>}
