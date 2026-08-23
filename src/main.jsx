@@ -172,7 +172,7 @@ function App(){
   <main>
    {page==='entry'&&<Entry onSelect={enterRole}/>}
    {page==='login'&&<Login role={role} name={name} setName={setName} password={password} setPassword={setPassword} onSubmit={login} onBack={()=>setPage('entry')}/>} 
-   {page==='dashboard'&&<Dashboard role={role} name={name} rooms={activeRooms} setRooms={setRooms} syncStatus={syncStatus} onCreate={createRoom} onJoin={joinRoom} onEnd={adminEnd} onOpenAdmin={setAdminView} adminView={adminView} credentials={credentials} setCredentials={setCredentials} attendance={attendance} users={knownUsers} setUsers={setKnownUsers} toast={setToast}/>} 
+   {page==='dashboard'&&<Dashboard role={role} name={name} rooms={activeRooms} setRooms={setRooms} syncStatus={syncStatus} onCreate={createRoom} onJoin={joinRoom} onEnd={adminEnd} onOpenAdmin={setAdminView} adminView={adminView} credentials={credentials} setCredentials={setCredentials} attendance={attendance} setAttendance={setAttendance} users={knownUsers} setUsers={setKnownUsers} toast={setToast}/>} 
    {page==='meeting'&&<Meeting role={role} name={name} room={currentRoom} avatar={avatar} setToast={setToast} camera={camera} mic={mic} sharing={sharing} pinned={pinned} setCamera={setCamera} setMic={setMic} setSharing={setSharing} setPinned={setPinned} onLeave={leaveMeeting} onEnd={endRoom}/>} 
   </main>{toast&&<div className="toast">{toast}</div>}<footer>WebInternDev • Responsive meeting platform</footer>
  </div>
@@ -180,7 +180,7 @@ function App(){
 function Entry({onSelect}){return <section className="hero"><div className="hero-card entry-card"><div className="hero-brand-wrap"><img className="hero-logo" src={logo}/></div><div className="entry-intro"><span className="entry-kicker">SECURE • SIMPLE • CONNECTED</span><h1>How do you want to enter?</h1><p>Select your role to continue to WebInternDev.</p></div><div className="role-grid"><RoleCard title="Admin" desc="Monitor meetings and manage the platform" onClick={()=>onSelect('admin')} icon="admin"/><RoleCard title="Host" desc="Create meetings and share your screen" onClick={()=>onSelect('host')} icon="host"/><RoleCard title="User" desc="Join an active meeting and collaborate" onClick={()=>onSelect('user')} icon="user"/></div><div className="entry-footer"><span>WebInternDev</span><span>Professional meeting workspace</span></div></div></section>}
 function RoleCard({title,desc,onClick,icon}){const paths={admin:<><path d="M4 19.5V9.8L12 5l8 4.8v9.7"/><path d="M8 19.5v-6h8v6M3 19.5h18M9 9.5h6"/></>,host:<><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m8 9 5 3-5 3V9ZM16 9h2M16 12h2M16 15h2"/></>,user:<><circle cx="12" cy="8" r="3.5"/><path d="M5.5 19c.8-3.2 3-5 6.5-5s5.7 1.8 6.5 5"/></>};return <button className="role-card" onClick={onClick}><span className="role-icon"><svg viewBox="0 0 24 24">{paths[icon]}</svg></span><span>{title}</span><small>{desc}</small><strong>Continue <i>→</i></strong></button>}
 function Login({role,name,setName,password,setPassword,onSubmit,onBack}){return <section className="center"><div className="panel login-panel"><div className="login-mark">{role==='admin'?'A':role==='host'?'H':'U'}</div><h1>{role==='admin'?'Admin Login':role==='host'?'Host Login':'User Login'}</h1><p className="muted">{role==='admin'?'Use the administrator account.':'Enter your name and shared role password.'}</p><form onSubmit={onSubmit}><label>Name<input value={name} onChange={e=>setName(e.target.value)} placeholder={role==='admin'?'Bastaoang Jayson A':'Enter your name'} required/></label><label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" required/></label><button className="primary wide">Continue</button></form><button className="link-btn" onClick={onBack}>← Back</button></div></section>}
-function Dashboard({role,name,rooms,setRooms,syncStatus,onCreate,onJoin,onEnd,onOpenAdmin,adminView,credentials,setCredentials,attendance,users,setUsers,toast}){
+function Dashboard({role,name,rooms,setRooms,syncStatus,onCreate,onJoin,onEnd,onOpenAdmin,adminView,credentials,setCredentials,attendance,setAttendance,users,setUsers,toast}){
  const [selectedRoom,setSelectedRoom]=useState(null);
  const [setup,setSetup]=useState(null);
  const [checking,setChecking]=useState(false);
@@ -190,7 +190,7 @@ function Dashboard({role,name,rooms,setRooms,syncStatus,onCreate,onJoin,onEnd,on
  {setup&&<SupabaseSetupChecker result={setup} checking={checking} onCheck={runSetupCheck}/>}
  {role==='admin'&&<div className="stats"><Stat n={rooms.length} t="Active Meetings"/><Stat n={rooms.reduce((a,r)=>a+r.participants,0)} t="Participants"/><Stat n="50" t="Capacity / Room"/><Stat n="2" t="Room Limit"/></div>}
  <div className="section-head"><h2>{role==='admin'?'Active Meetings':'Available Meetings'}</h2><span>{rooms.length}/2 active • {syncStatus==='online'?'● Online sync':syncStatus==='connecting'?'Connecting…':'⚠ Sync error'}</span></div><div className="room-actions"><button className="ghost small" onClick={async()=>{try{const rr=await dbList('wid_rooms','?select=*&active=eq.true&order=created_at.desc');setRooms(rr.map(mapRoom));setSyncStatus('online');setToast('Meeting list refreshed.')}catch(e){setSyncStatus('error');setSetup(null);setToast('Refresh failed. Running the Supabase setup checker…');setTimeout(runSetupCheck,50)}}}>↻ Refresh meetings</button><button className="ghost small" onClick={runSetupCheck} disabled={checking}>{checking?'Checking…':'⚙ Check Supabase setup'}</button></div><div className="room-grid">{rooms.length?rooms.map(r=><RoomCard key={r.id} room={r} role={role} onJoin={()=>{setSelectedRoom(r);onJoin(r)}} onEnd={()=>onEnd(r)}/>):<div className="empty"><b>No active meetings</b><p>{role==='host'?'Create your first meeting to get started.':'Wait for a Host to create a meeting.'}</p></div>}</div>
- {role==='admin'&&<><div className="section-head"><h2>Admin controls</h2></div><div className="control-grid"><AdminControl title="User Management" icon="users" desc="View users who have entered WebInternDev and manage their access." onClick={()=>onOpenAdmin('users')}/><AdminControl title="Password Management" icon="lock" desc="Change the Host and User shared passwords." onClick={()=>onOpenAdmin('passwords')}/><AdminControl title="Attendance" icon="calendar" desc="View join time, leave time, duration, room and participant history." onClick={()=>onOpenAdmin('attendance')}/></div>{adminView&&<AdminPanel view={adminView} close={()=>onOpenAdmin(null)} credentials={credentials} setCredentials={setCredentials} attendance={attendance} users={users} setUsers={setUsers} toast={toast}/>}</>}
+ {role==='admin'&&<><div className="section-head"><h2>Admin controls</h2></div><div className="control-grid"><AdminControl title="User Management" icon="users" desc="View users who have entered WebInternDev and manage their access." onClick={()=>onOpenAdmin('users')}/><AdminControl title="Password Management" icon="lock" desc="Change the Host and User shared passwords." onClick={()=>onOpenAdmin('passwords')}/><AdminControl title="Attendance" icon="calendar" desc="View join time, leave time, duration, room and participant history." onClick={()=>onOpenAdmin('attendance')}/></div>{adminView&&<AdminPanel view={adminView} close={()=>onOpenAdmin(null)} credentials={credentials} setCredentials={setCredentials} attendance={attendance} setAttendance={setAttendance} users={users} setUsers={setUsers} toast={toast}/>}</>}
  </section>
 }
 function SupabaseSetupChecker({result,checking,onCheck}){
@@ -206,14 +206,16 @@ function SupabaseSetupChecker({result,checking,onCheck}){
  </div>
 }
 function AdminControl({title,desc,onClick,icon}){return <button className="admin-control" onClick={onClick}><span className="admin-control-icon">{icon==='users'?'◎':icon==='lock'?'⌑':'▣'}</span><span><b>{title}</b><small>{desc}</small></span><strong>Open →</strong></button>}
-function AdminPanel({view,close,credentials,setCredentials,attendance,users,setUsers,toast}){
+function AdminPanel({view,close,credentials,setCredentials,attendance,setAttendance,users,setUsers,toast}){
  const [hostPwd,setHostPwd]=useState(credentials.hostPassword),[userPwd,setUserPwd]=useState(credentials.userPassword);
  const savePasswords=async()=>{if(!hostPwd.trim()||!userPwd.trim()){toast('Passwords cannot be empty.');return}setCredentials(c=>({...c,hostPassword:hostPwd,userPassword:userPwd}));try{await dbUpsert('wid_settings',{id:1,host_password:hostPwd,user_password:userPwd,updated_at:new Date().toISOString()});toast('Host and User passwords updated online.');close()}catch(e){toast('Saved locally, but Supabase update failed. Run supabase_schema.sql and check RLS.')}};
  const removeUser=(idx)=>{const u=users[idx];setUsers(list=>list.filter((_,i)=>i!==idx));toast(`${u.name} removed from the local user list.`)};
+ const deleteAttendance=async(id)=>{try{await dbDelete('wid_attendance',`?id=eq.${encodeURIComponent(id)}`);setAttendance(list=>list.filter(x=>x.id!==id));toast?.('Call history entry deleted.')}catch(e){toast?.(`Could not delete call history: ${e.message}`)}};
+ const clearAttendance=async()=>{if(!window.confirm('Delete all call and attendance history? This cannot be undone.'))return;try{await dbDelete('wid_attendance','?id=not.is.null');setAttendance([]);toast?.('All call history deleted.')}catch(e){toast?.(`Could not clear call history: ${e.message}`)}};
  return <div className="admin-panel"><div className="admin-panel-head"><div><span className="eyebrow">Admin Control</span><h2>{view==='users'?'User Management':view==='passwords'?'Password Management':'Attendance'}</h2></div><button className="ghost" onClick={close}>Close</button></div>
  {view==='users'&&<div className="table-wrap">{users.length?<table><thead><tr><th>Name</th><th>Role</th><th>Access</th><th></th></tr></thead><tbody>{users.map((u,i)=><tr key={`${u.name}-${u.role}-${i}`}><td>{u.name}</td><td>{u.role}</td><td><span className="status">Active</span></td><td><button className="danger small" onClick={()=>removeUser(i)}>Remove</button></td></tr>)}</tbody></table>:<div className="empty"><b>No users recorded yet.</b><p>A Host or User will appear here after entering the platform.</p></div>}</div>}
  {view==='passwords'&&<div className="password-grid"><label>Host password<input type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)}/></label><label>User password<input type="password" value={userPwd} onChange={e=>setUserPwd(e.target.value)}/></label><div className="panel-actions"><button className="primary" onClick={savePasswords}>Save Passwords</button><button className="ghost" onClick={()=>{setHostPwd(DEFAULTS.hostPassword);setUserPwd(DEFAULTS.userPassword)}}>Reset defaults</button></div></div>}
- {view==='attendance'&&<div className="table-wrap">{attendance.length?<table><thead><tr><th>Name</th><th>Role</th><th>Meeting</th><th>Joined</th><th>Left</th><th>Duration</th></tr></thead><tbody>{attendance.slice().reverse().map(a=><tr key={a.id}><td>{a.name}</td><td>{a.role}</td><td>{a.roomTitle}</td><td>{formatDate(a.joinedAt)}</td><td>{a.leftAt?formatDate(a.leftAt):<span className="status">In meeting</span>}</td><td>{a.duration!=null?`${a.duration} min`:'—'}</td></tr>)}</tbody></table>:<div className="empty"><b>No attendance yet.</b><p>Attendance is recorded when a Host or User joins a meeting.</p></div>}</div>}
+ {view==='attendance'&&<div className="table-wrap"><div className="history-actions"><b>Call & Attendance History</b>{attendance.length>0&&<button className="danger small" onClick={clearAttendance}>Clear all history</button>}</div>{attendance.length?<table><thead><tr><th>Name</th><th>Role</th><th>Meeting</th><th>Joined</th><th>Left</th><th>Duration</th><th>Action</th></tr></thead><tbody>{attendance.slice().reverse().map(a=><tr key={a.id}><td>{a.name}</td><td>{a.role}</td><td>{a.roomTitle}</td><td>{formatDate(a.joinedAt)}</td><td>{a.leftAt?formatDate(a.leftAt):<span className="status">In meeting</span>}</td><td>{a.duration!=null?`${a.duration} min`:'—'}</td><td><button className="danger small" onClick={()=>deleteAttendance(a.id)}>Delete</button></td></tr>)}</tbody></table>:<div className="empty"><b>No call history yet.</b><p>Call and attendance history is recorded when a Host or User joins a meeting.</p></div>}</div>}
  </div>
 }
 function formatDate(v){return new Date(v).toLocaleString([], {dateStyle:'short',timeStyle:'short'})}
@@ -247,17 +249,38 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const [remoteScreenTrack,setRemoteScreenTrack]=useState(null);
  const [screenAspect,setScreenAspect]=useState(16/9);
  const [screenFullscreen,setScreenFullscreen]=useState(false);
+ const [screenEpoch,setScreenEpoch]=useState(0);
  const [chat,setChat]=useState([]);
  const [message,setMessage]=useState('');
  const [micError,setMicError]=useState('');
  const [chatReady,setChatReady]=useState(false);
  const [chatError,setChatError]=useState('');
+ const [reactionPicker,setReactionPicker]=useState(false);
+ const [reactions,setReactions]=useState([]);
  const liveRoomRef=useRef(null);
  const chatEndRef=useRef(null);
  const seenChatIdsRef=useRef(new Set());
  const mounted=useRef(true);
  const screenTrackRef=useRef(null);
  const mainTileRef=useRef(null);
+ const resetScreenView=()=>{
+   // Fully clear both local and remote references. This is important when a
+   // screen-share track is stopped and then started again: LiveKit may deliver
+   // publication events asynchronously, so simply hiding the old video can
+   // leave a stale black frame behind.
+   setPinned(false);
+   setSharing(false);
+   screenTrackRef.current=null;
+   setScreenTrack(null);
+   setRemoteScreenTrack(null);
+   setScreenAspect(16/9);
+   setScreenEpoch(v=>v+1);
+ };
+ const isUsableScreenTrack=(track)=>{
+   if(!track)return false;
+   const media=track.mediaStreamTrack;
+   return !media || media.readyState!=='ended';
+ };
  const wsUrlHint=import.meta.env.VITE_LIVEKIT_URL || '';
  const MICROPHONE_CAPTURE_OPTIONS={echoCancellation:true,noiseSuppression:true,autoGainControl:false,channelCount:1,latency:0.02};
 
@@ -281,7 +304,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
            const screenPub=Array.from(p.videoTrackPublications?.values?.()||[]).find(pub=>
              (pub.source==='screen_share' || pub.source==='screenShare') && pub.track
            );
-           if(screenPub?.track) {
+           if(screenPub?.track && isUsableScreenTrack(screenPub.track)) {
              try { screenPub.setSubscribed?.(true); screenPub.setVideoQuality?.(2); } catch {}
              activeRemoteScreen=screenPub.track;
            }
@@ -337,10 +360,17 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
          if(publication?.source==='screen_share' || publication?.source==='screenShare') refresh();
        });
        liveRoom.on(RoomEvent.TrackUnpublished,(publication)=>{
-         if(publication?.source==='screen_share') setRemoteScreenTrack(null);
+         if(publication?.source==='screen_share' || publication?.source==='screenShare') {
+           resetScreenView();
+         }
          refresh();
        });
-       liveRoom.on(RoomEvent.TrackUnsubscribed,refresh);
+       liveRoom.on(RoomEvent.TrackUnsubscribed,(track,publication)=>{
+         if(publication?.source==='screen_share' || publication?.source==='screenShare') {
+           resetScreenView();
+         }
+         refresh();
+       });
        liveRoom.on(RoomEvent.LocalTrackPublished,refresh);
        liveRoom.on(RoomEvent.LocalTrackUnpublished,refresh);
        const appendChatMessage=(message,participant,local=false)=>{
@@ -362,6 +392,12 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
            const msg=JSON.parse(text);
            if(topic==='system' && msg?.type==='admin_joining'){
              setToast?.(`Admin ${msg.name || 'Admin'} is joining the meeting.`);
+             return;
+           }
+           if(topic==='reaction' && msg?.type==='reaction' && msg.emoji){
+             const id=msg.id||crypto.randomUUID();
+             setReactions(r=>r.concat({id,emoji:msg.emoji,name:participant?.name||participant?.identity||'Participant'}));
+             setTimeout(()=>setReactions(r=>r.filter(x=>x.id!==id)),2800);
              return;
            }
            if(topic && topic!=='chat') return;
@@ -514,14 +550,38 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        } : undefined
      );
      setSharing(next);
-     if(!next){setPinned(false);screenTrackRef.current=null;setScreenTrack(null);}
+     if(!next){resetScreenView();}
      else {
        const pub=publication || Array.from(r.localParticipant.videoTrackPublications.values()).find(p=>p.source==='screen_share' && p.track);
-       if(pub?.track){screenTrackRef.current=pub.track;setScreenTrack(pub.track);}
+       if(pub?.track){
+         screenTrackRef.current=pub.track;
+         setScreenTrack(pub.track);
+         setRemoteScreenTrack(null);
+         const media=pub.track.mediaStreamTrack;
+         if(media){
+           media.onended=()=>{
+             if(mounted.current) resetScreenView();
+           };
+         }
+       }
        else throw new Error('The browser did not publish a screen-share track.');
      }
-   }catch(e){console.error('Screen-share toggle failed:',e);setSharing(false);setPinned(false);setScreenTrack(null);screenTrackRef.current=null;setToast?.(`Screen sharing could not start: ${e?.message || 'check browser permission.'}`);}
+   }catch(e){console.error('Screen-share toggle failed:',e);resetScreenView();setToast?.(`Screen sharing could not start: ${e?.message || 'check browser permission.'}`);}
  };
+ const sendReaction=async(emoji)=>{
+   const r=liveRoomRef.current;
+   if(!r || r.state!=='connected'){setToast?.('Reactions are waiting for the meeting connection.');return;}
+   const id=crypto.randomUUID();
+   const item={id,emoji,name};
+   setReactions(list=>list.concat(item));
+   setTimeout(()=>setReactions(list=>list.filter(x=>x.id!==id)),2800);
+   setReactionPicker(false);
+   try{
+     const payload=new TextEncoder().encode(JSON.stringify({type:'reaction',id,emoji}));
+     await r.localParticipant.publishData(payload,{reliable:true,topic:'reaction'});
+   }catch(e){console.warn('Reaction broadcast failed:',e);setToast?.('Could not send reaction to everyone.');}
+ };
+ const REACTIONS=['😀','😂','😍','😎','👏','👍','❤️','🔥','🎉','😮'];
  const sendChat=async(e)=>{
    e?.preventDefault();
    const text=message.trim();
@@ -558,8 +618,8 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    return pubs.find(p=>p.source===source && p.track)?.track||null;
  };
  const allParticipants=[{local:true,participant:liveRoomRef.current?.localParticipant||null,name,role},...participants.map(p=>({local:false,participant:p,name:p.name||p.identity,role:p.metadata?(()=>{try{return JSON.parse(p.metadata).role}catch{return 'user'}})():'user'}))];
- const screenFromRemote=remoteScreenTrack || participants.map(p=>trackForParticipant(p,'screen_share')).find(Boolean);
- const mainScreen=screenTrack||screenFromRemote;
+ const screenFromRemote=(isUsableScreenTrack(remoteScreenTrack)?remoteScreenTrack:null) || participants.map(p=>trackForParticipant(p,'screen_share')||trackForParticipant(p,'screenShare')).find(isUsableScreenTrack) || null;
+ const mainScreen=isUsableScreenTrack(screenTrack)?screenTrack:screenFromRemote;
  const remoteScreenActive=Boolean(screenFromRemote);
  const showingScreen=Boolean(mainScreen);
  const toggleScreenFullscreen=async()=>{
@@ -587,11 +647,12 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    {connection.startsWith('error:')&&<div className="meeting-error">{connection.slice(6)}<button className="ghost small" onClick={()=>window.location.reload()}>Reload</button></div>}
    <div className={`stage ${pinned&&mainScreen?'pinned':''} ${showingScreen?'screen-active':''}`}>
      <div ref={mainTileRef} className="main-tile" style={showingScreen?{'--screen-aspect':screenAspect}:undefined}>
-       {showingScreen ? <LiveVideo track={mainScreen} className="screen-video" onAspectRatio={setScreenAspect} /> :
-         <div className="screen-share-placeholder" role="status" aria-live="polite">
+       {showingScreen ? <LiveVideo key={`screen-${screenEpoch}-${mainScreen?.sid||mainScreen?.mediaStreamTrack?.id||'active'}`} track={mainScreen} className="screen-video" onAspectRatio={setScreenAspect} /> :
+         <div key={`placeholder-${screenEpoch}`} className="screen-share-placeholder" role="status" aria-live="polite">
            <span>Screen Share</span>
          </div>
        }
+       <div className="reaction-layer" aria-live="polite">{reactions.map((r,i)=><div className="floating-reaction" style={{left:`${12+(i*17)%76}%`,animationDelay:`${(i%3)*70}ms`}} key={r.id} title={r.name}>{r.emoji}</div>)}</div>
        {showingScreen&&<button type="button" className="screen-fit-button" aria-label={screenFullscreen?'Exit full screen':'Full screen shared screen'} title={screenFullscreen?'Exit full screen':'Full screen'} onClick={toggleScreenFullscreen}><MeetingIcon type={screenFullscreen?'fullscreenExit':'fullscreen'}/></button>}
      </div>
      <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=><ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar}/>)}</div>
@@ -607,6 +668,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
          <button aria-label={sharing?'Stop sharing screen':'Share screen'} title={sharing?'Stop sharing screen':'Share screen'} className={sharing?'control active':'control'} onClick={toggleScreen}><span className="meeting-symbol"><MeetingIcon type={sharing?'stopScreen':'screen'}/></span><span>{sharing?'Stop share':'Share'}</span></button>
          <button aria-label={pinned?'Unpin screen':'Pin screen'} title={pinned?'Unpin screen':'Pin screen'} disabled={!showingScreen} className={pinned?'control active':'control'} onClick={()=>setPinned(!pinned)}><span className="meeting-symbol"><MeetingIcon type="pin"/></span><span>{pinned?'Unpin':'Pin'}</span></button>
        </>}
+       <div className="reaction-control-wrap"><button aria-label="Send reaction" title="Reactions" className={reactionPicker?'control active':'control'} onClick={()=>setReactionPicker(v=>!v)}><span className="reaction-symbol">😀</span><span>React</span></button>{reactionPicker&&<div className="reaction-picker">{REACTIONS.map(emoji=><button type="button" key={emoji} onClick={()=>sendReaction(emoji)} aria-label={`Send ${emoji}`}>{emoji}</button>)}</div>}</div>
        <button aria-label="Open chat" title="Chat" className="control" onClick={()=>document.getElementById('chat-panel')?.classList.toggle('open')}><span className="meeting-symbol"><MeetingIcon type="chat"/></span><span>Chat</span></button>
        <button aria-label="Open participants" title="Participants" className="control" onClick={()=>document.getElementById('participants-panel')?.classList.toggle('open')}><span className="meeting-symbol"><MeetingIcon type="people"/></span><span>People</span></button>
        {role==='host'?<button aria-label="End meeting" title="End meeting" className="danger control end-control" onClick={onEnd}><span className="meeting-symbol"><MeetingIcon type="end"/></span><span>End</span></button>:<button aria-label="Leave meeting" title="Leave meeting" className="danger control end-control" onClick={onLeave}><span className="meeting-symbol"><MeetingIcon type="leave"/></span><span>Leave</span></button>}
