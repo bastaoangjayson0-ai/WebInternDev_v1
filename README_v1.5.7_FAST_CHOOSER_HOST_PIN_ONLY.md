@@ -8,3 +8,10 @@
 - Native source selection remains available for entire screen, window, and browser tab where supported.
 - The received shared screen continues to preserve its source aspect ratio and fit without cropping.
 - Existing zoom controls remain available to viewers.
+
+
+## v1.5.8 recursive screen-share fix
+- The current WebInternDev browser tab is excluded from Chrome/Edge screen-share choices with `selfBrowserSurface: 'exclude'`.
+- `preferCurrentTab: false` remains enabled.
+- This prevents accidentally sharing the meeting page itself, which caused the infinite mirror/recursive screenshot effect.
+- The Host can still share the entire screen, another window, or another browser tab.

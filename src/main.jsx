@@ -474,11 +474,11 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
      // Host-only screen sharing. Keep the capture request deliberately minimal
      // so Chrome/Edge can open the native monitor/window/tab chooser as quickly
      // as possible. The chooser itself is controlled by the browser/OS, not the app.
-     if(next) setToast?.('Opening screen chooser… select Screen, Window, or Tab.');
+     if(next) setToast?.('Opening screen chooser… choose Entire screen or a different window/tab. This tab is blocked to prevent the recursive screen-sharing effect.');
      const captureOptions = next ? {
        contentHint:'detail',
        preferCurrentTab:false,
-       selfBrowserSurface:'include',
+       selfBrowserSurface:'exclude',
        surfaceSwitching:'include',
        monitorTypeSurfaces:'include'
      } : undefined;
@@ -499,7 +499,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        if(pub?.track){screenTrackRef.current=pub.track;setScreenTrack(pub.track);}
        else throw new Error('The browser did not publish a screen-share track.');
      }
-   }catch(e){setSharing(false);setPinned(false);setToast?.('Screen sharing could not start. Check browser permission and try again.');}
+   }catch(e){console.error('Screen-share toggle failed:',e);setSharing(false);setPinned(false);setScreenTrack(null);screenTrackRef.current=null;setToast?.(`Screen sharing could not start: ${e?.message || 'check browser permission.'}`);}
  };
  const sendChat=async(e)=>{
    e?.preventDefault();
