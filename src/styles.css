@@ -45,3 +45,12 @@
  .meeting-error{font-size:12px}
 }
 .room-actions{display:flex;justify-content:flex-end;margin:-12px 0 12px}.ghost.small{padding:8px 12px;font-size:.85rem}
+
+/* Supabase setup checker */
+.setup-checker{margin:18px 0 24px;background:#fff;border:1px solid #dce9ed;border-radius:20px;padding:20px;box-shadow:0 10px 30px rgba(12,73,94,.06)}
+.setup-checker.setup-fail{border-color:#f1caca;background:#fffafa}.setup-checker.setup-ok{border-color:#c8e9dc;background:#fbfffd}
+.setup-checker-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}.setup-checker-head h2{margin:4px 0 5px;font-size:20px;color:#133c51}.setup-checker-head p{margin:0;color:#667d88;line-height:1.5}
+.setup-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:17px}.setup-card{border:1px solid #e1ecef;border-radius:15px;padding:15px;background:#fff}.setup-card>b{display:block;margin-bottom:10px;color:#345365}
+.setup-row{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid #edf2f4}.setup-row:first-of-type{border-top:0}.setup-row>div{min-width:0}.setup-row strong{display:block;font-size:13px;color:#163f52;word-break:break-word}.setup-row small{display:block;margin-top:3px;color:#71838c;line-height:1.4;word-break:break-word}.setup-dot{font-size:12px;line-height:18px}.setup-dot.ok{color:#0a9a72}.setup-dot.fail{color:#c43d35}
+.setup-next{margin-top:14px;padding:12px 14px;border-radius:12px;background:#fff3f2;color:#7f302b;font-size:13px;line-height:1.5}.setup-next code{background:#f5e4e2;padding:2px 5px;border-radius:5px}.setup-next-good{background:#eafaf5;color:#087d5e}
+@media(max-width:700px){.setup-checker-head{flex-direction:column}.setup-grid{grid-template-columns:1fr}.setup-checker{padding:15px}.setup-checker-head .ghost{width:100%}}

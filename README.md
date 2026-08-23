@@ -14,3 +14,16 @@ Keep these variables:
 - LIVEKIT_API_SECRET
 
 After deployment, the User dashboard should show any active Host room. If it shows `Sync error`, use **Refresh meetings**; the error indicates Supabase table/RLS/configuration still needs fixing.
+
+## Supabase Setup Checker
+The dashboard now includes **⚙ Check Supabase setup**. It checks:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `public.wid_rooms`
+- `public.wid_users`
+- `public.wid_attendance`
+- `public.wid_settings`
+
+It distinguishes a missing table (`PGRST205`), RLS/permission blocking, and network/configuration errors, and gives the next action. If room sync fails, the checker also opens automatically.
+
+If an environment variable is missing, add it in Vercel Project Settings → Environment Variables and redeploy. If a database table is missing, run `supabase_schema.sql` in Supabase SQL Editor.
