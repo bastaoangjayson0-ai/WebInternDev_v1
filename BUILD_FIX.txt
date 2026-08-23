@@ -1,0 +1,1 @@
+Fixed Vercel/Vite build syntax error in src/main.jsx line 234: added missing comma between leave and fitScreen properties.

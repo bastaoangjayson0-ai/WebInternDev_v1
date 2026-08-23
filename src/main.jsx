@@ -231,7 +231,7 @@ function MeetingIcon({type}){
   chat:<><path d="M4 5.5h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-5 3v-3.1a2 2 0 0 1-3-1.9v-8a2 2 0 0 1 2-2z"/><path d="M7 11.5h.01M12 11.5h.01M17 11.5h.01"/></>,
   people:<><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3 2.5-4.7 5.5-4.7s4.9 1.7 5.5 4.7"/><path d="M16 6.5a3 3 0 0 1 0 5.8M17 14.5c2.1.6 3.4 2 3.8 4.5"/></>,
   end:<><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></>,
-  leave:<><path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M13 8l4 4-4 4M8 12h9"/></>
+  leave:<><path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M13 8l4 4-4 4M8 12h9"/></>,
   fitScreen:<><rect x="5" y="5" width="11" height="13" rx="1.5"/><rect x="8" y="2" width="11" height="13" rx="1.5"/></>,
  };
  return <svg className="meeting-icon-svg" viewBox="0 0 24 24" aria-hidden="true">{paths[type]||paths.people}</svg>;
