@@ -51,9 +51,9 @@ export default {
       const participantName = String(body?.participantName ?? '').trim();
       const role = String(body?.role ?? '').trim().toLowerCase();
 
-      if (!roomName || !participantName || !['host', 'user'].includes(role)) {
+      if (!roomName || !participantName || !['admin', 'host', 'user'].includes(role)) {
         return json({
-          error: 'roomName, participantName and role (host or user) are required.'
+          error: 'roomName, participantName and role (admin, host or user) are required.'
         }, 400);
       }
 

@@ -218,13 +218,14 @@ function AdminPanel({view,close,credentials,setCredentials,attendance,users,setU
 }
 function formatDate(v){return new Date(v).toLocaleString([], {dateStyle:'short',timeStyle:'short'})}
 function Stat({n,t}){return <div className="stat"><strong>{n}</strong><span>{t}</span></div>}
-function RoomCard({room,role,onJoin,onEnd}){return <div className="room-card"><div className="room-top"><span className="live">● LIVE</span><span>{room.participants}/50</span></div><h3>{room.title}</h3><p className="muted">Host: {room.host}</p><div className="room-actions">{role==='admin'?<button className="danger" onClick={onEnd}>End Meeting</button>:<button className="primary" onClick={onJoin}>{role==='host'?'Open Meeting':'Join Meeting'}</button>}</div></div>}
+function RoomCard({room,role,onJoin,onEnd}){return <div className="room-card"><div className="room-top"><span className="live">● LIVE</span><span>{room.participants}/50</span></div><h3>{room.title}</h3><p className="muted">Host: {room.host}</p><div className="room-actions">{role==='admin'?<><button className="primary" onClick={onJoin}>Join Room</button><button className="danger" onClick={onEnd}>End Meeting</button></>:<button className="primary" onClick={onJoin}>{role==='host'?'Open Meeting':'Join Meeting'}</button>}</div></div>}
 function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setMic,setSharing,setPinned,onLeave,onEnd,setToast}){
  const [connection,setConnection]=useState('connecting');
  const [participants,setParticipants]=useState([]);
  const [localTracks,setLocalTracks]=useState([]);
  const [screenTrack,setScreenTrack]=useState(null);
  const [remoteScreenTrack,setRemoteScreenTrack]=useState(null);
+ const [screenAspect,setScreenAspect]=useState(16/9);
  const [chat,setChat]=useState([]);
  const [message,setMessage]=useState('');
  const [micError,setMicError]=useState('');
@@ -277,7 +278,18 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
          }
        };
        liveRoom.on(RoomEvent.ConnectionStateChanged,(state)=>setConnection(String(state).toLowerCase()));
-       liveRoom.on(RoomEvent.ParticipantConnected,refresh);
+       liveRoom.on(RoomEvent.ParticipantConnected,(participant)=>{
+         refresh();
+         try {
+           let participantRole='user';
+           if(participant?.metadata){
+             try { participantRole=JSON.parse(participant.metadata)?.role || 'user'; } catch {}
+           }
+           if(participantRole==='admin'){
+             setToast?.(`Admin ${participant?.name || participant?.identity || 'Admin'} is joining the meeting.`);
+           }
+         } catch {}
+       });
        liveRoom.on(RoomEvent.ParticipantDisconnected,refresh);
        liveRoom.on(RoomEvent.TrackSubscribed,(track,publication,participant)=>{
          setRemoteScreen(track,publication,participant);
@@ -326,9 +338,13 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        // Fallback for older LiveKit builds/tokens that do not expose chatMessage.
        liveRoom.on(RoomEvent.DataReceived,(payload,participant,kind,topic)=>{
          try{
-           if(topic && topic!=='chat') return;
            const text = typeof payload === 'string' ? payload : new TextDecoder().decode(payload);
            const msg=JSON.parse(text);
+           if(topic==='system' && msg?.type==='admin_joining'){
+             setToast?.(`Admin ${msg.name || 'Admin'} is joining the meeting.`);
+             return;
+           }
+           if(topic && topic!=='chat') return;
            if(msg?.type==='chat' && typeof msg.text==='string') appendChatMessage({id:msg.id,message:msg.text},participant,false);
          }catch(err){ /* ignore non-chat data */ }
        });
@@ -344,6 +360,13 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        });
        await liveRoom.connect(data.url, data.token);
        setConnection('connected');
+       if(role==='admin'){
+         setToast?.(`Admin ${name} is joining the meeting.`);
+         try {
+           const notice=new TextEncoder().encode(JSON.stringify({type:'admin_joining',name}));
+           await liveRoom.localParticipant.publishData(notice,{reliable:true,topic:'system'});
+         } catch(e) { console.warn('Admin join notice could not be broadcast:',e); }
+       }
        setChatReady(true);
        setChatError('');
 
@@ -517,9 +540,9 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    <div className="meeting-head"><div><b>{room.title}</b><span className="muted"> • {room.participants}/50</span></div><span className={connection==='connected'?'live':'connection-pill'}>{connection==='connected'?'● LIVE':connection==='connecting'?'Connecting…':connection.startsWith('error:')?'Connection error':'Reconnecting…'}</span></div>
    {connection.startsWith('error:')&&<div className="meeting-error">{connection.slice(6)}<button className="ghost small" onClick={()=>window.location.reload()}>Reload</button></div>}
    <div className={`stage ${pinned&&mainScreen?'pinned':''} ${showingScreen?'screen-active':''}`}>
-     <div className="main-tile">
-       {showingScreen?<LiveVideo track={mainScreen} className="screen-video" label={screenTrack?`${name} is sharing screen`:'Host is sharing screen'}/>:<div className="main-content">
-         {sharing&&screenTrack?<LiveVideo track={screenTrack} className="screen-video" label={`${name} is sharing screen`}/>:camera&&localTracks.find(t=>t.kind==='video')?<LiveVideo track={localTracks.find(t=>t.kind==='video')} className="local-video" label={name}/>:<div className="avatar-view"><img src={avatar}/><span>{name}</span></div>}
+     <div className="main-tile" style={showingScreen?{'--screen-aspect':screenAspect}:undefined}>
+       {showingScreen?<LiveVideo track={mainScreen} className="screen-video" label={screenTrack?`${name} is sharing screen`:'Host is sharing screen'} onAspectRatio={setScreenAspect}/>:<div className="main-content">
+         {sharing&&screenTrack?<LiveVideo track={screenTrack} className="screen-video" label={`${name} is sharing screen`} onAspectRatio={setScreenAspect}/>:camera&&localTracks.find(t=>t.kind==='video')?<LiveVideo track={localTracks.find(t=>t.kind==='video')} className="local-video" label={name}/>:<div className="avatar-view"><img src={avatar}/><span>{name}</span></div>}
        </div>}
        {(sharing||remoteScreenActive)&&<span className="share-label">🖥️ {screenTrack?`${name} is sharing screen`:'Host is sharing screen'}</span>}
      </div>
@@ -536,12 +559,11 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
          <button aria-label={sharing?'Stop sharing screen':'Share screen'} title={sharing?'Stop sharing screen':'Share screen'} className={sharing?'control active':'control'} onClick={toggleScreen}><span className="meeting-symbol">🖥️</span><span>{sharing?'Stop share':'Share'}</span></button>
          <button aria-label={pinned?'Unpin screen':'Pin screen'} title={pinned?'Unpin screen':'Pin screen'} disabled={!showingScreen} className={pinned?'control active':'control'} onClick={()=>setPinned(!pinned)}><span className="meeting-symbol">📌</span><span>{pinned?'Unpin':'Pin'}</span></button>
        </>}
-       {role!=='host'&&showingScreen&&<button aria-label={pinned?'Unpin shared screen':'Pin shared screen'} title={pinned?'Unpin shared screen':'Pin shared screen'} className={pinned?'control active':'control'} onClick={()=>setPinned(!pinned)}><span className="meeting-symbol">📌</span><span>{pinned?'Unpin':'Pin screen'}</span></button>}
        <button aria-label="Open chat" title="Chat" className="control" onClick={()=>document.getElementById('chat-panel')?.classList.toggle('open')}><span className="meeting-symbol">💬</span><span>Chat</span></button>
        <button aria-label="Open participants" title="Participants" className="control" onClick={()=>document.getElementById('participants-panel')?.classList.toggle('open')}><span className="meeting-symbol">👥</span><span>People</span></button>
        {role==='host'?<button aria-label="End meeting" title="End meeting" className="danger control end-control" onClick={onEnd}><span className="meeting-symbol">⛔</span><span>End</span></button>:<button aria-label="Leave meeting" title="Leave meeting" className="danger control end-control" onClick={onLeave}><span className="meeting-symbol">↩️</span><span>Leave</span></button>}
      </div>
-     {role==='host'&&<div className="host-note">Host controls: screen share + pin/unpin. Pinning is responsive across desktop, tablet, and mobile.</div>}
+     {role==='host'&&<div className="host-note">Host controls: screen share + pin/unpin. Participants can view the shared screen, but only the Host can pin it.</div>}
    </div>
    <aside id="chat-panel" className="meeting-side-panel"><div className="side-head"><b>Chat</b><button onClick={()=>document.getElementById('chat-panel')?.classList.remove('open')}>×</button></div><div className="chat-list">{chat.length?chat.map(m=><div className={m.local?'chat-msg local':'chat-msg'} key={m.id}><b>{m.name}</b><span>{m.text}</span></div>):<p className="muted">{chatReady?'No messages yet.':'Connecting chat…'}</p>}<div ref={chatEndRef}/></div>{chatError&&<div className="chat-error">{chatError}</div>}<form className="chat-form" onSubmit={sendChat}><input value={message} onChange={e=>setMessage(e.target.value)} placeholder={chatReady?'Type a message…':'Connecting chat…'} disabled={!chatReady}/><button className="primary" type="submit" disabled={!chatReady||!message.trim()}>Send</button></form></aside>
    <aside id="participants-panel" className="meeting-side-panel participants-panel"><div className="side-head"><b>Participants ({participants.length+1})</b><button onClick={()=>document.getElementById('participants-panel')?.classList.remove('open')}>×</button></div><div className="participant-list"><div className="participant-row"><img src={avatar}/><span>{name} <small>• {role}</small></span></div>{participants.map(p=><div className="participant-row" key={p.identity}><img src={avatar}/><span>{p.name||p.identity}</span></div>)}</div></aside>
@@ -573,7 +595,7 @@ function AudioTrack({track}){
  },[track]);
  return <div ref={ref} aria-hidden="true"/>;
 }
-function LiveVideo({track,className,label}){const ref=useRef(null);useEffect(()=>{if(!track||!ref.current)return;const el=track.attach();el.className=className||'';el.autoplay=true;el.playsInline=true;ref.current.innerHTML='';ref.current.appendChild(el);return()=>{try{track.detach(el);el.remove()}catch{}}},[track,className]);return <div ref={ref} className="live-video-wrap" aria-label={label}/>}
+function LiveVideo({track,className,label,onAspectRatio}){const ref=useRef(null);useEffect(()=>{if(!track||!ref.current)return;const el=track.attach();el.className=className||'';el.autoplay=true;el.playsInline=true;ref.current.innerHTML='';ref.current.appendChild(el);const updateAspect=()=>{if(el.videoWidth&&el.videoHeight&&onAspectRatio)onAspectRatio(el.videoWidth/el.videoHeight)};el.addEventListener?.('loadedmetadata',updateAspect);updateAspect();return()=>{el.removeEventListener?.('loadedmetadata',updateAspect);try{track.detach(el);el.remove()}catch{}}},[track,className,onAspectRatio]);return <div ref={ref} className="live-video-wrap" aria-label={label}/> }
 function ParticipantTile({item,avatar}){const videoTrack=item.participant?Array.from(item.participant.videoTrackPublications?.values?.()||[]).find(p=>p.source==='camera'&&p.track)?.track||null:null;return <div className="thumb">{videoTrack?<LiveVideo track={videoTrack} className="thumb-video" label={item.name}/>:<img src={avatar}/>}<span>{item.name}{item.role==='host'?' • Host':''}</span></div>}
 
 createRoot(document.getElementById('root')).render(<App/>);
