@@ -49,3 +49,12 @@ The current build is a frontend prototype. For real multi-user meetings, connect
 - Vercel for the web application.
 
 Do not put production passwords or LiveKit server secrets in browser code. Use secure backend/token generation for production.
+
+
+## Supabase connection (V1.1)
+1. Open Supabase SQL Editor.
+2. Run `supabase_schema.sql`.
+3. In Vercel Project Settings → Environment Variables, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`.
+4. Redeploy.
+
+The publishable key is intended for frontend use. Never put a Supabase secret/service-role key in this project. The included RLS policies are prototype policies for initial testing and must be tightened before public production.

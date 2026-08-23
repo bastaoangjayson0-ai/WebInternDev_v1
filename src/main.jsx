@@ -3,9 +3,12 @@ import {createRoot} from 'react-dom/client';
 import './styles.css';
 import logo from './assets/logo.jfif';
 import avatar from './assets/avatar.jpg';
+import {dbList,dbInsert,dbUpdate,dbUpsert,dbDelete,supabaseConfig} from './supabase';
 
 const DEFAULTS={admin:{name:'Bastaoang Jayson A',password:'webinternDEV'},hostPassword:'BSIT',userPassword:'CRT-NEUST-GSC'};
 const defaultRooms=[];
+const mapRoom=r=>({id:r.id,title:r.title,host:r.host,participants:r.participants,active:r.active,createdAt:r.created_at});
+const mapAttendance=a=>({id:a.id,name:a.name,role:a.role,roomId:a.room_id,roomTitle:a.room_title,host:a.host,joinedAt:a.joined_at,leftAt:a.left_at,duration:a.duration});
 const read=(key,fallback)=>{try{const v=JSON.parse(localStorage.getItem(key));return v??fallback}catch{return fallback}};
 const write=(key,value)=>localStorage.setItem(key,JSON.stringify(value));
 function App(){
@@ -18,6 +21,35 @@ function App(){
  useEffect(()=>write('wid_credentials',credentials),[credentials]);
  useEffect(()=>write('wid_attendance',attendance),[attendance]);
  useEffect(()=>write('wid_users',knownUsers),[knownUsers]);
+ useEffect(()=>{
+   let cancelled=false;
+   (async()=>{
+     try{
+       const [rr,uu,aa,ss]=await Promise.all([dbList('wid_rooms','?select=*&order=created_at.desc'),dbList('wid_users','?select=*'),dbList('wid_attendance','?select=*&order=joined_at.desc'),dbList('wid_settings','?select=*\&id=eq.1')]);
+       if(cancelled)return;
+       if(Array.isArray(rr))setRooms(rr.map(mapRoom));
+       if(Array.isArray(uu))setKnownUsers(uu.map(u=>({name:u.name,role:u.role})));
+       if(Array.isArray(aa))setAttendance(aa.map(mapAttendance));
+       if(Array.isArray(ss)&&ss[0])setCredentials(c=>({...c,hostPassword:ss[0].host_password,userPassword:ss[0].user_password}));
+     }catch(e){console.warn('Supabase initial sync unavailable:',e.message)}
+   })();
+   return()=>{cancelled=true};
+ },[]);
+ useEffect(()=>{
+   if(!rooms.length)return;
+   const fresh=rooms;
+   (async()=>{try{for(const r of fresh){await dbUpsert('wid_rooms',{id:r.id,title:r.title,host:r.host,participants:r.participants,active:r.active,created_at:new Date(r.createdAt||Date.now()).toISOString()})}}catch(e){console.warn('Room sync:',e.message)}})();
+ },[rooms]);
+ useEffect(()=>{
+   if(!attendance.length)return;
+   const a=attendance[attendance.length-1];
+   (async()=>{try{await dbUpsert('wid_attendance',{id:a.id,name:a.name,role:a.role,room_id:a.roomId,room_title:a.roomTitle,host:a.host,joined_at:a.joinedAt,left_at:a.leftAt,duration:a.duration})}catch(e){console.warn('Attendance sync:',e.message)}})();
+ },[attendance]);
+ useEffect(()=>{
+   if(!knownUsers.length)return;
+   const u=knownUsers[knownUsers.length-1];
+   (async()=>{try{await dbUpsert('wid_users',{name:u.name,role:u.role})}catch(e){console.warn('User sync:',e.message)}})();
+ },[knownUsers]);
  useEffect(()=>{if(toast){const t=setTimeout(()=>setToast(''),3000);return()=>clearTimeout(t)}},[toast]);
  const activeRooms=useMemo(()=>rooms.filter(r=>r.active),[rooms]);
  function enterRole(r){setRole(r);setPage('login');setName('');setPassword('');setAdminView(null)}
@@ -60,7 +92,7 @@ function Dashboard({role,name,rooms,onCreate,onJoin,onEnd,onOpenAdmin,adminView,
 function AdminControl({title,desc,onClick,icon}){return <button className="admin-control" onClick={onClick}><span className="admin-control-icon">{icon==='users'?'◎':icon==='lock'?'⌑':'▣'}</span><span><b>{title}</b><small>{desc}</small></span><strong>Open →</strong></button>}
 function AdminPanel({view,close,credentials,setCredentials,attendance,users,setUsers,toast}){
  const [hostPwd,setHostPwd]=useState(credentials.hostPassword),[userPwd,setUserPwd]=useState(credentials.userPassword);
- const savePasswords=()=>{if(!hostPwd.trim()||!userPwd.trim()){toast('Passwords cannot be empty.');return}setCredentials(c=>({...c,hostPassword:hostPwd,userPassword:userPwd}));toast('Host and User passwords updated.');close()};
+ const savePasswords=async()=>{if(!hostPwd.trim()||!userPwd.trim()){toast('Passwords cannot be empty.');return}setCredentials(c=>({...c,hostPassword:hostPwd,userPassword:userPwd}));try{await dbUpsert('wid_settings',{id:1,host_password:hostPwd,user_password:userPwd,updated_at:new Date().toISOString()});toast('Host and User passwords updated online.');close()}catch(e){toast('Saved locally, but Supabase update failed. Run supabase_schema.sql and check RLS.')}};
  const removeUser=(idx)=>{const u=users[idx];setUsers(list=>list.filter((_,i)=>i!==idx));toast(`${u.name} removed from the local user list.`)};
  return <div className="admin-panel"><div className="admin-panel-head"><div><span className="eyebrow">Admin Control</span><h2>{view==='users'?'User Management':view==='passwords'?'Password Management':'Attendance'}</h2></div><button className="ghost" onClick={close}>Close</button></div>
  {view==='users'&&<div className="table-wrap">{users.length?<table><thead><tr><th>Name</th><th>Role</th><th>Access</th><th></th></tr></thead><tbody>{users.map((u,i)=><tr key={`${u.name}-${u.role}-${i}`}><td>{u.name}</td><td>{u.role}</td><td><span className="status">Active</span></td><td><button className="danger small" onClick={()=>removeUser(i)}>Remove</button></td></tr>)}</tbody></table>:<div className="empty"><b>No users recorded yet.</b><p>A Host or User will appear here after entering the platform.</p></div>}</div>}
