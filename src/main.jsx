@@ -6,7 +6,7 @@ import avatar from './assets/avatar.jpg';
 import {dbList,dbInsert,dbUpdate,dbUpsert,dbDelete,supabaseConfig,supabase,checkSupabaseSetup} from './supabase';
 
 const DEFAULTS={admin:{name:'Bastaoang Jayson A',password:'webinternDEV'},hostPassword:'BSIT',userPassword:'CRT-NEUST-GSC'};
-const REMOTE_AUDIO_VOLUME=0.9;
+const REMOTE_AUDIO_VOLUME=1.0;
 const defaultRooms=[];
 const mapRoom=r=>({id:r.id,title:r.title,host:r.host,participants:r.participants,active:r.active,createdAt:r.created_at});
 const mapAttendance=a=>({id:a.id,name:a.name,role:a.role,roomId:a.room_id,roomTitle:a.room_title,host:a.host,joinedAt:a.joined_at,leftAt:a.left_at,duration:a.duration});
@@ -232,10 +232,11 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const [chatError,setChatError]=useState('');
  const liveRoomRef=useRef(null);
  const chatEndRef=useRef(null);
+ const seenChatIdsRef=useRef(new Set());
  const mounted=useRef(true);
  const screenTrackRef=useRef(null);
  const wsUrlHint=import.meta.env.VITE_LIVEKIT_URL || '';
- const MICROPHONE_CAPTURE_OPTIONS={echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1,latency:0.02};
+ const MICROPHONE_CAPTURE_OPTIONS={echoCancellation:true,noiseSuppression:true,autoGainControl:false,channelCount:1,latency:0.02};
 
  useEffect(()=>{
    mounted.current=true;
@@ -301,23 +302,26 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        liveRoom.on(RoomEvent.TrackUnsubscribed,refresh);
        liveRoom.on(RoomEvent.LocalTrackPublished,refresh);
        liveRoom.on(RoomEvent.LocalTrackUnpublished,refresh);
-       const appendRemoteChat=(text,participant)=>{
-         if(typeof text!=='string' || !text.trim()) return;
-         setChat(c=>c.concat({id:crypto.randomUUID(),name:participant?.name||participant?.identity||'Participant',text:text.trim(),local:false}));
+       const appendChatMessage=(message,participant,local=false)=>{
+         const text=typeof message==='string' ? message : (message?.message || message?.text || message?.content);
+         const id=(typeof message==='object' && message?.id) ? message.id : crypto.randomUUID();
+         if(typeof text!=='string' || !text.trim() || seenChatIdsRef.current.has(id)) return;
+         seenChatIdsRef.current.add(id);
+         const sender=local ? name : (participant?.name || participant?.identity || 'Participant');
+         setChat(c=>c.concat({id,name:sender,text:text.trim(),local}));
        };
+       liveRoom.on(RoomEvent.ChatMessage,(chatMessage,participant)=>{
+         try{ appendChatMessage(chatMessage,participant,participant?.identity===liveRoom.localParticipant.identity); }
+         catch(err){ console.warn('LiveKit chat event failed:',err); }
+       });
+       // Fallback for older LiveKit builds/tokens that do not expose chatMessage.
        liveRoom.on(RoomEvent.DataReceived,(payload,participant,kind,topic)=>{
          try{
+           if(topic && topic!=='chat') return;
            const text = typeof payload === 'string' ? payload : new TextDecoder().decode(payload);
-           let msg;
-           try{ msg=JSON.parse(text); }catch{ msg=null; }
-           if((!topic || topic==='chat') && msg?.type==='chat' && typeof msg.text==='string') appendRemoteChat(msg.text,participant);
-         }catch(err){ console.warn('Chat receive failed:',err); }
-       });
-       liveRoom.on(RoomEvent.ChatMessage,(chatMessage,participant)=>{
-         try{
-           const text=typeof chatMessage==='string' ? chatMessage : (chatMessage?.message || chatMessage?.text || chatMessage?.content);
-           if(typeof text==='string') appendRemoteChat(text,participant);
-         }catch(err){ console.warn('LiveKit chat event failed:',err); }
+           const msg=JSON.parse(text);
+           if(msg?.type==='chat' && typeof msg.text==='string') appendChatMessage({id:msg.id,message:msg.text},participant,false);
+         }catch(err){ /* ignore non-chat data */ }
        });
        liveRoom.on(RoomEvent.LocalTrackPublished,()=>{ if(mounted.current) setChatReady(true); refresh(); });
        liveRoom.on(RoomEvent.LocalTrackUnpublished,refresh);
@@ -450,18 +454,22 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    if(!text)return;
    if(!r || r.state!=='connected'){setChatError('Chat is waiting for the meeting connection.');setToast?.('Chat is not connected yet.');return;}
    try {
-     if(!r.localParticipant.permissions?.canPublishData && r.localParticipant.permissions?.canPublishData !== undefined){
-       throw new Error('LiveKit token does not allow chat/data publishing.');
+     let sent;
+     if(typeof r.localParticipant.sendChatMessage==='function'){
+       sent=await r.localParticipant.sendChatMessage(text,{topic:'chat'});
+     } else {
+       const id=crypto.randomUUID();
+       const data=new TextEncoder().encode(JSON.stringify({type:'chat',id,text}));
+       await r.localParticipant.publishData(data,{reliable:true,topic:'chat'});
+       sent={id,message:text};
      }
-     const data=new TextEncoder().encode(JSON.stringify({type:'chat',text,ts:Date.now()}));
-     await r.localParticipant.publishData(data,{reliable:true,topic:'chat'});
-     setChat(c=>c.concat({id:crypto.randomUUID(),name,text,local:true}));
+     appendChatMessage(sent,r.localParticipant,true);
      setMessage('');
      setChatError('');
    } catch(err) {
      console.error('Chat send failed:',err);
-     setChatError(err?.message || 'LiveKit data channel failed.');
-     setToast?.('Chat message could not be sent. Check that the meeting is connected.');
+     setChatError(err?.message || 'Chat message could not be sent.');
+     setToast?.(`Chat message could not be sent: ${err?.message || 'check the meeting connection.'}`);
    }
  };
  const trackForParticipant=(participant,source)=>{
@@ -488,7 +496,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    </div>
    <div className="remote-audio" aria-hidden="true">{participants.map(p=><RemoteAudio key={p.identity} participant={p}/>)}</div>
    {micError&&<div className="meeting-status-error">Microphone: {micError} <button className="ghost small" onClick={toggleMic}>Try microphone again</button></div>}
-   <div className="audio-note">Remote participant audio is automatically kept at a comfortable level.</div>
+   <div className="audio-note">Remote participant audio playback is set to 100%. You can also use your phone/computer volume buttons.</div>
    <div className="meeting-bottom">
      <div className="meeting-controls">
        <button aria-label={mic?'Mute microphone':'Unmute microphone'} title={mic?'Mute microphone':'Unmute microphone'} className={mic?'control active':'control'} onClick={toggleMic}><span className="meeting-symbol">{mic?'🎤':'🔇'}</span><span>{mic?'Mute':'Unmute'}</span></button>

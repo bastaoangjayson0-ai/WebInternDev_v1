@@ -92,3 +92,67 @@
  .stage.screen-active .main-tile{min-height:62vh;height:62vh}
  .control{min-width:68px;height:48px;padding:0 10px}
 }
+
+
+/* v1.5.0 responsive meeting + clear chat */
+.meeting-side-panel{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:#ffffff!important;opacity:1!important;color:#173f51;box-shadow:0 24px 70px rgba(15,23,42,.28);}
+.meeting-side-panel .side-head{background:#ffffff;color:#123047;position:sticky;top:0;z-index:2;border-bottom:1px solid #e5eef1;padding:13px 14px;display:flex;align-items:center;justify-content:space-between;}
+.chat-list{background:#ffffff;min-height:0;}
+.chat-msg{background:#f1f6f8;border:1px solid #e0eaee;color:#173f51;box-shadow:0 3px 10px rgba(15,23,42,.05);}
+.chat-msg.local{background:#e8f7fb;border-color:#c5eaf1;}
+.chat-msg b{color:#075f78;font-size:12px;letter-spacing:.01em;}
+.chat-msg span{color:#183c4b;word-break:break-word;}
+.chat-form{background:#ffffff;position:sticky;bottom:0;z-index:3;}
+.chat-form input{background:#fff;color:#173f51;font-size:15px;min-height:44px;}
+.chat-form input::placeholder{color:#8a9aa2;}
+.chat-form button{min-height:44px;}
+.participants-panel .participant-list{background:#fff;}
+.participant-row{border-bottom:1px solid #edf2f4;}
+.audio-note{color:#6b7f88;}
+.remote-audio{width:1px!important;height:1px!important;overflow:hidden!important;position:absolute!important;left:-9999px!important;}
+
+@media (max-width:1100px){
+ .stage{grid-template-columns:1fr;min-height:auto;padding:14px;}
+ .main-tile{min-height:58vh;}
+ .thumbs{grid-auto-flow:column;grid-auto-columns:minmax(112px,1fr);grid-auto-rows:104px;overflow-x:auto;overflow-y:hidden;}
+ .thumb{min-width:112px;}
+}
+@media (max-width:700px){
+ .meeting{min-height:100dvh;padding-bottom:12px;}
+ .meeting-head{height:auto;min-height:60px;padding:10px 12px;gap:10px;}
+ .meeting-head>div{min-width:0;}
+ .meeting-head b{font-size:14px;}
+ .stage,.stage.pinned{display:block;width:100%;padding:8px;}
+ .stage .main-tile,.stage.screen-active .main-tile{width:100%;height:56dvh;min-height:300px;max-height:68dvh;border-radius:14px;}
+ .stage.screen-active .main-tile{height:62dvh;max-height:72dvh;}
+ .stage.screen-active .live-video-wrap.screen-video video{width:100%;height:100%;object-fit:contain;background:#05090d;}
+ .thumbs{display:flex;gap:8px;width:100%;padding:8px 2px 4px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;}
+ .thumb{flex:0 0 112px;height:94px;min-width:112px;border-radius:12px;scroll-snap-align:start;}
+ .thumb img{width:44px;height:44px;}
+ .thumb-video video{width:100%;height:100%;object-fit:cover;border-radius:10px;}
+ .meeting-controls{display:flex;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;overflow-y:hidden;padding:10px 10px 8px;gap:8px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;}
+ .meeting-controls .control{flex:0 0 auto;min-width:72px;height:48px;scroll-snap-align:start;}
+ .meeting-controls .end-control{min-width:78px!important;}
+ .meeting-side-panel{position:fixed;left:8px;right:8px;bottom:74px;width:auto;height:min(70dvh,560px);max-height:calc(100dvh - 130px);border-radius:16px;}
+ .meeting-side-panel.open{display:flex;}
+ .chat-list{padding:12px;}
+ .chat-form{padding:10px;}
+ .chat-form input{min-width:0;width:100%;}
+ .chat-form .primary{flex:0 0 auto;}
+ .audio-note{font-size:11px;padding:0 10px;}
+}
+@media (max-width:480px){
+ .stage .main-tile,.stage.screen-active .main-tile{height:52dvh;min-height:270px;}
+ .stage.screen-active .main-tile{height:58dvh;}
+ .thumb{flex-basis:102px;min-width:102px;height:88px;}
+ .meeting-controls .control{min-width:70px;padding:0 10px;font-size:11px;}
+ .meeting-controls .meeting-symbol{font-size:17px;}
+ .meeting-side-panel{left:6px;right:6px;bottom:70px;height:min(72dvh,540px);}
+ .chat-form{gap:6px;}
+ .chat-form input{font-size:14px;}
+}
+@media (min-width:701px) and (max-width:1100px){
+ .stage .main-tile{height:58vh;min-height:420px;}
+ .stage.screen-active .main-tile{height:64vh;}
+ .thumbs{grid-auto-columns:150px;grid-auto-rows:110px;}
+}
