@@ -19,3 +19,7 @@ After deployment, open:
 It should return JSON with `ok: true` and `configured: true`.
 
 If `configured` is false, check the three Vercel environment variables and redeploy.
+
+
+### V1.2.3 room visibility fix
+This version publishes host-created rooms directly to Supabase, subscribes to realtime `wid_rooms` changes, and refreshes active rooms every 5 seconds as a fallback. Run the updated `supabase_schema.sql` once so `wid_rooms` is enabled for Supabase Realtime.

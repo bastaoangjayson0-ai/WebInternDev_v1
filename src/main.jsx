@@ -3,7 +3,7 @@ import {createRoot} from 'react-dom/client';
 import './styles.css';
 import logo from './assets/logo.jfif';
 import avatar from './assets/avatar.jpg';
-import {dbList,dbInsert,dbUpdate,dbUpsert,dbDelete,supabaseConfig} from './supabase';
+import {dbList,dbInsert,dbUpdate,dbUpsert,dbDelete,supabaseConfig,supabase} from './supabase';
 
 const DEFAULTS={admin:{name:'Bastaoang Jayson A',password:'webinternDEV'},hostPassword:'BSIT',userPassword:'CRT-NEUST-GSC'};
 const defaultRooms=[];
@@ -36,6 +36,30 @@ function App(){
    return()=>{cancelled=true};
  },[]);
  useEffect(()=>{
+   const channel=supabase.channel('wid-rooms-live')
+     .on('postgres_changes',{event:'*',schema:'public',table:'wid_rooms'},payload=>{
+       const next=payload.new ? mapRoom(payload.new) : null;
+       if(payload.eventType==='DELETE' && payload.old?.id){
+         setRooms(prev=>prev.filter(r=>r.id!==payload.old.id));
+       } else if(next){
+         setRooms(prev=>{
+           const exists=prev.some(r=>r.id===next.id);
+           return exists ? prev.map(r=>r.id===next.id?next:r) : [next,...prev];
+         });
+       }
+     })
+     .subscribe();
+   return()=>{supabase.removeChannel(channel)};
+ },[]);
+ useEffect(()=>{
+   if(!role || page==='meeting') return;
+   let cancelled=false;
+   const refresh=async()=>{try{const rr=await dbList('wid_rooms','?select=*&active=eq.true&order=created_at.desc'); if(!cancelled && Array.isArray(rr)) setRooms(prev=>{const remote=rr.map(mapRoom); const remoteIds=new Set(remote.map(r=>r.id)); const localActive=prev.filter(r=>r.active && !remoteIds.has(r.id)); return [...remote,...localActive];});}catch(e){console.warn('Room refresh:',e.message)}};
+   refresh();
+   const timer=setInterval(refresh,5000);
+   return()=>{cancelled=true;clearInterval(timer)};
+ },[role,page]);
+ useEffect(()=>{
    if(!rooms.length)return;
    const fresh=rooms;
    (async()=>{try{for(const r of fresh){await dbUpsert('wid_rooms',{id:r.id,title:r.title,host:r.host,participants:r.participants,active:r.active,created_at:new Date(r.createdAt||Date.now()).toISOString()})}}catch(e){console.warn('Room sync:',e.message)}})();
@@ -62,7 +86,7 @@ function App(){
    }
    setPage('dashboard');setToast(`Welcome to WebInternDev, ${name || role}!`)
  }
- function createRoom(){if(activeRooms.length>=2){setToast('Maximum of 2 active meeting rooms has been reached.');return} const title=window.prompt('Meeting title:','Web Development Class'); if(!title?.trim())return; const room={id:crypto.randomUUID(),title:title.trim(),host:name,participants:0,active:true,createdAt:Date.now()};setRooms(x=>[...x,room]);setToast('Meeting created successfully.')}
+ async function createRoom(){if(activeRooms.length>=2){setToast('Maximum of 2 active meeting rooms has been reached.');return} const title=window.prompt('Meeting title:','Web Development Class'); if(!title?.trim())return; const room={id:crypto.randomUUID(),title:title.trim(),host:name,participants:0,active:true,createdAt:Date.now()}; try{await dbUpsert('wid_rooms',{id:room.id,title:room.title,host:room.host,participants:0,active:true,created_at:new Date(room.createdAt).toISOString()}); setRooms(x=>[room,...x.filter(r=>r.id!==room.id)]); setToast('Meeting created successfully. Users can now see it.')}catch(e){setToast(`Could not publish meeting: ${e.message}`);console.error(e)}}
  function joinRoom(room){if(role==='user'&&room.participants>=50){setToast('This meeting is full.');return} setCurrentRoom(room); setPage('meeting'); const now=new Date().toISOString(); setAttendance(a=>a.concat({id:crypto.randomUUID(),name,role,roomId:room.id,roomTitle:room.title,host:room.host,joinedAt:now,leftAt:null,duration:null})); setRooms(x=>x.map(r=>r.id===room.id?{...r,participants:Math.min(50,r.participants+(role==='user'?1:0))}:r));}
  function leaveMeeting(){if(!currentRoom)return; const now=new Date(); setAttendance(a=>a.map(x=>{if(x.name===name&&x.roomId===currentRoom.id&&!x.leftAt){const joined=new Date(x.joinedAt);return {...x,leftAt:now.toISOString(),duration:Math.max(0,Math.round((now-joined)/60000))}}return x})); setRooms(x=>x.map(r=>r.id===currentRoom.id?{...r,participants:Math.max(0,r.participants-(role==='user'?1:0))}:r));setCurrentRoom(null);setPage('dashboard');setSharing(false);setPinned(false);setToast('You left the meeting. You can rejoin while it is active.')}
  function endRoom(){if(!currentRoom)return; const now=new Date();setAttendance(a=>a.map(x=>x.roomId===currentRoom.id&&!x.leftAt?{...x,leftAt:now.toISOString(),duration:Math.max(0,Math.round((now-new Date(x.joinedAt))/60000))}:x));setRooms(x=>x.map(r=>r.id===currentRoom.id?{...r,active:false,participants:0}:r));setCurrentRoom(null);setPage('dashboard');setSharing(false);setPinned(false);setToast('Meeting ended.')}

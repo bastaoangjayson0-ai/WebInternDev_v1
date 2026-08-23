@@ -1,7 +1,9 @@
+import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://aihtqibixooyafbivklo.supabase.co';
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_R8TTr6JAKXiTmwWaNawUKA_XyTYPexp';
 
 export const supabaseConfig = { url: SUPABASE_URL, key: SUPABASE_KEY };
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { realtime: { params: { eventsPerSecond: 10 } } });
 
 async function request(table, {method='GET', body, query='', prefer='return=representation'}={}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${query}`, {

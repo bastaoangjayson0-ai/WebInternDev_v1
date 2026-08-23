@@ -55,5 +55,7 @@ drop policy if exists wid_settings_public on public.wid_settings;
 create policy wid_settings_public on public.wid_settings for all to anon, authenticated using (true) with check (true);
 
 -- Realtime for rooms/attendance.
+alter publication supabase_realtime drop table if exists public.wid_rooms;
+alter publication supabase_realtime drop table if exists public.wid_attendance;
 alter publication supabase_realtime add table public.wid_rooms;
 alter publication supabase_realtime add table public.wid_attendance;

@@ -10,7 +10,7 @@
     "react":"latest",
     "react-dom":"latest",
     "livekit-client":"latest",
-    "livekit-server-sdk":"latest"
+    "livekit-server-sdk":"latest","@supabase/supabase-js":"latest"
   },
   "devDependencies": {}
 }
