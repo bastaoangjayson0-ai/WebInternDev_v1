@@ -203,11 +203,16 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const [screenTrack,setScreenTrack]=useState(null);
  const [chat,setChat]=useState([]);
  const [message,setMessage]=useState('');
+ const [micError,setMicError]=useState('');
+ const [chatReady,setChatReady]=useState(false);
+ const [chatError,setChatError]=useState('');
  const liveRoomRef=useRef(null);
  const chatEndRef=useRef(null);
  const mounted=useRef(true);
  const screenTrackRef=useRef(null);
  const wsUrlHint=import.meta.env.VITE_LIVEKIT_URL || '';
+ const REMOTE_AUDIO_VOLUME=0.55;
+ const MICROPHONE_CAPTURE_OPTIONS={echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1};
 
  useEffect(()=>{
    mounted.current=true;
@@ -223,7 +228,10 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        const refresh=()=>{
          if(!mounted.current)return;
          const list=[];
-         liveRoom.remoteParticipants.forEach(p=>list.push(p));
+         liveRoom.remoteParticipants.forEach(p=>{
+           try{p.setVolume?.(REMOTE_AUDIO_VOLUME)}catch{}
+           list.push(p);
+         });
          setParticipants(list);
        };
        liveRoom.on(RoomEvent.ConnectionStateChanged,(state)=>setConnection(String(state).toLowerCase()));
@@ -233,23 +241,38 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        liveRoom.on(RoomEvent.TrackUnsubscribed,refresh);
        liveRoom.on(RoomEvent.LocalTrackPublished,refresh);
        liveRoom.on(RoomEvent.LocalTrackUnpublished,refresh);
-       liveRoom.on(RoomEvent.DataReceived,(payload,participant)=>{
+       liveRoom.on(RoomEvent.DataReceived,(payload,participant,kind,topic)=>{
          try{
-           const msg=JSON.parse(new TextDecoder().decode(payload));
-           if(msg.type==='chat' && typeof msg.text==='string') setChat(c=>c.concat({id:crypto.randomUUID(),name:participant?.name||'Participant',text:msg.text,local:false}));
-         }catch{}
+           const text = typeof payload === 'string' ? payload : new TextDecoder().decode(payload);
+           const msg=JSON.parse(text);
+           if((!topic || topic==='chat') && msg.type==='chat' && typeof msg.text==='string') {
+             setChat(c=>c.concat({id:crypto.randomUUID(),name:participant?.name||'Participant',text:msg.text,local:false}));
+           }
+         }catch(err){ console.warn('Chat receive failed:',err); }
        });
+       liveRoom.on(RoomEvent.LocalTrackPublished,()=>{ if(mounted.current) setChatReady(Boolean(liveRoom.localParticipant.permissions?.canPublishData ?? true)); refresh(); });
+       liveRoom.on(RoomEvent.LocalTrackUnpublished,refresh);
+       liveRoom.on(RoomEvent.LocalTrackMuted,()=>{ if(mounted.current) setMic(false); refresh(); });
+       liveRoom.on(RoomEvent.LocalTrackUnmuted,()=>{ if(mounted.current) setMic(true); refresh(); });
        await liveRoom.connect(data.url, data.token);
        setConnection('connected');
+       setChatReady(Boolean(liveRoom.localParticipant.permissions?.canPublishData ?? true));
+       setChatError('');
 
-       // Request microphone and camera independently. A denied camera permission
-       // must never prevent the microphone (or meeting/chat) from working.
+       // Request microphone and camera independently. We explicitly verify that
+       // an audio input exists before asking LiveKit to publish it.
        const tracks=[];
        try {
-         await liveRoom.localParticipant.setMicrophoneEnabled(Boolean(mic));
+         if (!navigator.mediaDevices?.getUserMedia) throw new Error('This browser does not expose microphone access. Use HTTPS and a current browser.');
+         const devices = await navigator.mediaDevices.enumerateDevices();
+         if (!devices.some(d=>d.kind==='audioinput')) throw new Error('No microphone was detected. Connect or enable a microphone, then try again.');
+         await liveRoom.localParticipant.setMicrophoneEnabled(true, MICROPHONE_CAPTURE_OPTIONS);
+         const audioPub = Array.from(liveRoom.localParticipant.audioTrackPublications.values()).find(pub=>pub.track);
+         if (!audioPub?.track) throw new Error('LiveKit connected, but the microphone track was not published.');
+         if (mounted.current) { setMic(true); setMicError(''); }
        } catch (e) {
          console.warn('Microphone could not be enabled:', e);
-         if (mounted.current) { setMic(false); setConnection('connected'); }
+         if (mounted.current) { setMic(false); setMicError(e?.message || 'Microphone permission or device access failed.'); setToast?.('Microphone is off. Click Unmute and allow microphone access.'); }
        }
        try {
          await liveRoom.localParticipant.setCameraEnabled(Boolean(camera));
@@ -281,15 +304,25 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
 
  const toggleMic=async()=>{
    const r=liveRoomRef.current;
-   if(!r)return;
+   if(!r){setToast?.('The meeting connection is not ready yet.');return;}
    const next=!mic;
    try {
-     await r.localParticipant.setMicrophoneEnabled(next);
+     if(next){
+       if(!navigator.mediaDevices?.getUserMedia) throw new Error('Microphone access requires HTTPS and a supported browser.');
+       const devices = await navigator.mediaDevices.enumerateDevices();
+       if(!devices.some(d=>d.kind==='audioinput')) throw new Error('No microphone was detected. Connect a microphone and try again.');
+     }
+     await r.localParticipant.setMicrophoneEnabled(next, MICROPHONE_CAPTURE_OPTIONS);
+     const pub = Array.from(r.localParticipant.audioTrackPublications.values()).find(p=>p.track);
+     if(next && !pub?.track) throw new Error('Microphone permission was granted, but LiveKit did not publish the audio track.');
      setMic(next);
+     setMicError('');
+     setToast?.(next?'Microphone enabled.':'Microphone muted.');
    } catch(e) {
      console.error('Microphone toggle failed:',e);
      setMic(false);
-     setToast?.(`Microphone could not be ${next?'enabled':'changed'}. Check your browser microphone permission.`);
+     setMicError(e?.message || 'Microphone permission or device access failed.');
+     setToast?.(`Microphone could not be enabled: ${e?.message || 'check browser microphone permission.'}`);
    }
  };
  const toggleCamera=async()=>{
@@ -323,15 +356,18 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    e?.preventDefault();
    const text=message.trim();
    const r=liveRoomRef.current;
-   if(!text||!r)return;
+   if(!text)return;
+   if(!r || r.state!=='connected'){setChatError('Chat is waiting for the meeting connection.');setToast?.('Chat is not connected yet.');return;}
    try {
-     const data=new TextEncoder().encode(JSON.stringify({type:'chat',text}));
+     const data=new TextEncoder().encode(JSON.stringify({type:'chat',text,ts:Date.now()}));
      await r.localParticipant.publishData(data,{reliable:true,topic:'chat'});
      setChat(c=>c.concat({id:crypto.randomUUID(),name,text,local:true}));
      setMessage('');
+     setChatError('');
    } catch(err) {
      console.error('Chat send failed:',err);
-     setToast?.('Chat message could not be sent. Check the meeting connection and try again.');
+     setChatError(err?.message || 'LiveKit data channel failed.');
+     setToast?.('Chat message could not be sent. Check that the meeting is connected.');
    }
  };
  const trackForParticipant=(participant,source)=>{
@@ -355,6 +391,8 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
      <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=><ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar}/>)}</div>
    </div>
    <div className="remote-audio" aria-hidden="true">{participants.map(p=><RemoteAudio key={p.identity} participant={p}/>)}</div>
+   {micError&&<div className="meeting-status-error">Microphone: {micError} <button className="ghost small" onClick={toggleMic}>Try microphone again</button></div>}
+   <div className="audio-note">Remote participant audio is automatically kept at a comfortable level.</div>
    <div className="meeting-bottom">
      <div className="meeting-controls">
        <button aria-label={mic?'Mute microphone':'Unmute microphone'} title={mic?'Mute microphone':'Unmute microphone'} className={mic?'control active':'control'} onClick={toggleMic}><span className="meeting-symbol">{mic?'🎤':'🔇'}</span><span>{mic?'Mute':'Unmute'}</span></button>
@@ -369,7 +407,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
      </div>
      {role==='host'&&<div className="host-note">Host controls: screen share + pin/unpin. Pinning is responsive across desktop, tablet, and mobile.</div>}
    </div>
-   <aside id="chat-panel" className="meeting-side-panel"><div className="side-head"><b>Chat</b><button onClick={()=>document.getElementById('chat-panel')?.classList.remove('open')}>×</button></div><div className="chat-list">{chat.length?chat.map(m=><div className={m.local?'chat-msg local':'chat-msg'} key={m.id}><b>{m.name}</b><span>{m.text}</span></div>):<p className="muted">No messages yet.</p>}<div ref={chatEndRef}/></div><form className="chat-form" onSubmit={sendChat}><input value={message} onChange={e=>setMessage(e.target.value)} placeholder="Type a message…"/><button className="primary">Send</button></form></aside>
+   <aside id="chat-panel" className="meeting-side-panel"><div className="side-head"><b>Chat</b><button onClick={()=>document.getElementById('chat-panel')?.classList.remove('open')}>×</button></div><div className="chat-list">{chat.length?chat.map(m=><div className={m.local?'chat-msg local':'chat-msg'} key={m.id}><b>{m.name}</b><span>{m.text}</span></div>):<p className="muted">{chatReady?'No messages yet.':'Connecting chat…'}</p>}<div ref={chatEndRef}/></div>{chatError&&<div className="chat-error">{chatError}</div>}<form className="chat-form" onSubmit={sendChat}><input value={message} onChange={e=>setMessage(e.target.value)} placeholder={chatReady?'Type a message…':'Connecting chat…'} disabled={!chatReady}/><button className="primary" type="submit" disabled={!chatReady||!message.trim()}>Send</button></form></aside>
    <aside id="participants-panel" className="meeting-side-panel participants-panel"><div className="side-head"><b>Participants ({participants.length+1})</b><button onClick={()=>document.getElementById('participants-panel')?.classList.remove('open')}>×</button></div><div className="participant-list"><div className="participant-row"><img src={avatar}/><span>{name} <small>• {role}</small></span></div>{participants.map(p=><div className="participant-row" key={p.identity}><img src={avatar}/><span>{p.name||p.identity}</span></div>)}</div></aside>
  </section>
 }
@@ -379,7 +417,20 @@ function RemoteAudio({participant}){
 }
 function AudioTrack({track}){
  const ref=useRef(null);
- useEffect(()=>{if(!track||!ref.current)return;const el=track.attach();el.autoplay=true;el.style.display='none';ref.current.innerHTML='';ref.current.appendChild(el);return()=>{try{track.detach(el);el.remove()}catch{}}},[track]);
+ useEffect(()=>{
+   if(!track||!ref.current)return;
+   try{track.setVolume?.(REMOTE_AUDIO_VOLUME)}catch{}
+   const el=track.attach();
+   el.autoplay=true;
+   el.playsInline=true;
+   el.volume=REMOTE_AUDIO_VOLUME;
+   el.style.display='none';
+   ref.current.innerHTML='';
+   ref.current.appendChild(el);
+   const play=()=>el.play?.().catch(()=>{});
+   play();
+   return()=>{try{track.detach(el);el.remove()}catch{}}
+ },[track]);
  return <div ref={ref} aria-hidden="true"/>;
 }
 function LiveVideo({track,className,label}){const ref=useRef(null);useEffect(()=>{if(!track||!ref.current)return;const el=track.attach();el.className=className||'';el.autoplay=true;el.playsInline=true;ref.current.innerHTML='';ref.current.appendChild(el);return()=>{try{track.detach(el);el.remove()}catch{}}},[track,className]);return <div ref={ref} className="live-video-wrap" aria-label={label}/>}

@@ -73,3 +73,6 @@
 
 .meeting-symbol{font-size:19px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
 .control span{line-height:1}
+.meeting-status-error{width:min(1200px,calc(100% - 40px));margin:0 auto 8px;background:#4a1f23;color:#ffd7da;border:1px solid #8c3b43;border-radius:12px;padding:10px 13px;font-size:12px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}.meeting-status-error .ghost{color:#ffd7da;text-decoration:underline}.chat-error{padding:8px 12px;background:#fff1f0;color:#a6322e;font-size:12px;border-top:1px solid #f0d3d1}.chat-form button:disabled{opacity:.45;cursor:not-allowed}
+
+.audio-note{font-size:.78rem;color:#71808d;text-align:center;margin:.35rem auto .6rem;opacity:.9}
