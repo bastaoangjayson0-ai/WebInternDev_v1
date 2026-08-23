@@ -6,7 +6,7 @@ import avatar from './assets/avatar.jpg';
 import {dbList,dbInsert,dbUpdate,dbUpsert,dbDelete,supabaseConfig,supabase,checkSupabaseSetup} from './supabase';
 
 const DEFAULTS={admin:{name:'Bastaoang Jayson A',password:'webinternDEV'},hostPassword:'BSIT',userPassword:'CRT-NEUST-GSC'};
-const REMOTE_AUDIO_VOLUME=0.18;
+const REMOTE_AUDIO_VOLUME=0.9;
 const defaultRooms=[];
 const mapRoom=r=>({id:r.id,title:r.title,host:r.host,participants:r.participants,active:r.active,createdAt:r.created_at});
 const mapAttendance=a=>({id:a.id,name:a.name,role:a.role,roomId:a.room_id,roomTitle:a.room_title,host:a.host,joinedAt:a.joined_at,leftAt:a.left_at,duration:a.duration});
@@ -235,7 +235,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const mounted=useRef(true);
  const screenTrackRef=useRef(null);
  const wsUrlHint=import.meta.env.VITE_LIVEKIT_URL || '';
- const MICROPHONE_CAPTURE_OPTIONS={echoCancellation:true,noiseSuppression:true,autoGainControl:false,channelCount:1,latency:0.02};
+ const MICROPHONE_CAPTURE_OPTIONS={echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1,latency:0.02};
 
  useEffect(()=>{
    mounted.current=true;
@@ -246,7 +246,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        const data=await resp.json();
        if(!resp.ok) throw new Error(data.error||data.detail||`Token endpoint returned HTTP ${resp.status}.`);
        const {Room,RoomEvent}=await import('livekit-client');
-       liveRoom=new Room({adaptiveStream:true,dynacast:true});
+       liveRoom=new Room({adaptiveStream:true,dynacast:true,autoSubscribe:true});
        liveRoomRef.current=liveRoom;
        const refresh=()=>{
          if(!mounted.current)return;
@@ -278,8 +278,21 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
          setRemoteScreen(track,publication,participant);
          refresh();
        });
-       liveRoom.on(RoomEvent.TrackPublished,(publication,participant)=>{
-         if(publication?.source==='screen_share') refresh();
+       liveRoom.on(RoomEvent.TrackSubscriptionFailed,(trackSid,participant)=>{
+         console.warn('LiveKit track subscription failed:', trackSid, participant?.identity);
+         setToast?.(`Could not receive audio/video from ${participant?.name || participant?.identity || 'participant'}.`);
+       });
+       liveRoom.on(RoomEvent.TrackPublished,async(publication,participant)=>{
+         try {
+           // Be explicit: every participant is allowed to subscribe to every
+           // newly published microphone/camera/screen track. This protects
+           // against browsers/devices that don't complete the automatic
+           // subscription quickly enough.
+           if (publication && !publication.isSubscribed) await publication.setSubscribed(true);
+         } catch(e) {
+           console.warn('Could not subscribe to newly published track:', e);
+         }
+         if(publication?.source==='screen_share' || publication?.source==='screenShare') refresh();
        });
        liveRoom.on(RoomEvent.TrackUnpublished,(publication)=>{
          if(publication?.source==='screen_share') setRemoteScreenTrack(null);
@@ -308,12 +321,31 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        });
        liveRoom.on(RoomEvent.LocalTrackPublished,()=>{ if(mounted.current) setChatReady(true); refresh(); });
        liveRoom.on(RoomEvent.LocalTrackUnpublished,refresh);
-       liveRoom.on(RoomEvent.LocalTrackMuted,()=>{ if(mounted.current) setMic(false); refresh(); });
-       liveRoom.on(RoomEvent.LocalTrackUnmuted,()=>{ if(mounted.current) setMic(true); refresh(); });
+       liveRoom.on(RoomEvent.LocalTrackMuted,(publication)=>{
+         if(mounted.current && publication?.source==='microphone') setMic(false);
+         refresh();
+       });
+       liveRoom.on(RoomEvent.LocalTrackUnmuted,(publication)=>{
+         if(mounted.current && publication?.source==='microphone') setMic(true);
+         refresh();
+       });
        await liveRoom.connect(data.url, data.token);
        setConnection('connected');
        setChatReady(true);
        setChatError('');
+
+       // Explicitly subscribe to already-published remote tracks. This is
+       // especially important when a participant joins after someone has
+       // already enabled their microphone.
+       for (const participant of liveRoom.remoteParticipants.values()) {
+         for (const publication of participant.trackPublications.values()) {
+           try {
+             if (!publication.isSubscribed) await publication.setSubscribed(true);
+           } catch (e) {
+             console.warn('Initial remote track subscription failed:', participant.identity, publication.source, e);
+           }
+         }
+       }
 
        // Request microphone and camera independently. We explicitly verify that
        // an audio input exists before asking LiveKit to publish it.
@@ -323,8 +355,9 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
          const devices = await navigator.mediaDevices.enumerateDevices();
          if (!devices.some(d=>d.kind==='audioinput')) throw new Error('No microphone was detected. Connect or enable a microphone, then try again.');
          await liveRoom.localParticipant.setMicrophoneEnabled(true, MICROPHONE_CAPTURE_OPTIONS);
-         const audioPub = Array.from(liveRoom.localParticipant.audioTrackPublications.values()).find(pub=>pub.track);
+         const audioPub = Array.from(liveRoom.localParticipant.audioTrackPublications.values()).find(pub=>pub.track && (pub.source==='microphone' || pub.source==='mic'));
          if (!audioPub?.track) throw new Error('LiveKit connected, but the microphone track was not published.');
+         if (audioPub.isMuted) await audioPub.setMuted(false);
          if (mounted.current) { setMic(true); setMicError(''); }
        } catch (e) {
          console.warn('Microphone could not be enabled:', e);
@@ -368,9 +401,10 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        const devices = await navigator.mediaDevices.enumerateDevices();
        if(!devices.some(d=>d.kind==='audioinput')) throw new Error('No microphone was detected. Connect a microphone and try again.');
      }
-     await r.localParticipant.setMicrophoneEnabled(next, MICROPHONE_CAPTURE_OPTIONS);
-     const pub = Array.from(r.localParticipant.audioTrackPublications.values()).find(p=>p.track);
-     if(next && !pub?.track) throw new Error('Microphone permission was granted, but LiveKit did not publish the audio track.');
+     const pub = await r.localParticipant.setMicrophoneEnabled(next, MICROPHONE_CAPTURE_OPTIONS);
+     const audioPub = pub || Array.from(r.localParticipant.audioTrackPublications.values()).find(p=>p.track && (p.source==='microphone' || p.source==='mic'));
+     if(next && !audioPub?.track) throw new Error('Microphone permission was granted, but LiveKit did not publish the audio track.');
+     if(next && audioPub?.isMuted) await audioPub.setMuted(false);
      setMic(next);
      setMicError('');
      setToast?.(next?'Microphone enabled.':'Microphone muted.');
@@ -474,8 +508,8 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  </section>
 }
 function RemoteAudio({participant}){
- const audioTracks=participant?Array.from(participant.audioTrackPublications?.values?.()||[]).map(p=>p.track).filter(Boolean):[];
- return <>{audioTracks.map((track,i)=><AudioTrack key={`${participant.identity}-${i}`} track={track}/>)}</>;
+ const audioPubs=participant?Array.from(participant.audioTrackPublications?.values?.()||[]).filter(p=>p.track && (p.source==='microphone' || p.source==='mic')):[];
+ return <>{audioPubs.map(pub=><AudioTrack key={`${participant.identity}-${pub.trackSid||pub.track?.sid||pub.source}`} track={pub.track}/>)}</>;
 }
 function AudioTrack({track}){
  const ref=useRef(null);
@@ -486,6 +520,7 @@ function AudioTrack({track}){
    el.autoplay=true;
    el.playsInline=true;
    el.volume=REMOTE_AUDIO_VOLUME;
+   // Keep browser playback loud enough for normal speech without boosting beyond unity.
    el.muted=false;
    el.setAttribute('playsinline','');
    el.setAttribute('aria-label','Remote participant audio');
