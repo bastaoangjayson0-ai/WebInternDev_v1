@@ -477,14 +477,22 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
      const publication=await r.localParticipant.setScreenShareEnabled(
        next,
        next ? {
+         // Use the browser's native picker: monitor, window, or browser tab.
+         // PDFs, PowerPoint, Excel, Word, websites, etc. can be shared when
+         // they are open in the selected window/tab.
          contentHint:'detail',
          resolution:{width:1920,height:1080,frameRate:15},
+         preferCurrentTab:false,
+         selfBrowserSurface:'include',
+         surfaceSwitching:'include',
+         systemAudio:'include',
+         audio:true
        } : undefined,
        next ? {
          source:'screen_share',
          simulcast:false,
          degradationPreference:'maintain-resolution',
-         screenShareEncoding:{width:1920,height:1080,maxBitrate:8000000,maxFramerate:15}
+         screenShareEncoding:{width:1920,height:1080,maxBitrate:10000000,maxFramerate:15}
        } : undefined
      );
      setSharing(next);
@@ -563,7 +571,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        <button aria-label="Open participants" title="Participants" className="control" onClick={()=>document.getElementById('participants-panel')?.classList.toggle('open')}><span className="meeting-symbol">👥</span><span>People</span></button>
        {role==='host'?<button aria-label="End meeting" title="End meeting" className="danger control end-control" onClick={onEnd}><span className="meeting-symbol">⛔</span><span>End</span></button>:<button aria-label="Leave meeting" title="Leave meeting" className="danger control end-control" onClick={onLeave}><span className="meeting-symbol">↩️</span><span>Leave</span></button>}
      </div>
-     {role==='host'&&<div className="host-note">Host controls: screen share + pin/unpin. Participants can view the shared screen, but only the Host can pin it.</div>}
+     {role==='host'&&<div className="host-note">Host controls: screen share + pin/unpin. Click Share to use your browser's chooser: select an entire screen, an open window, or a browser tab. You can share a PDF, PowerPoint, Excel sheet, Word file, website, or any other content visible in the selected window/tab. System audio is offered when the browser supports it.</div>}
    </div>
    <aside id="chat-panel" className="meeting-side-panel"><div className="side-head"><b>Chat</b><button onClick={()=>document.getElementById('chat-panel')?.classList.remove('open')}>×</button></div><div className="chat-list">{chat.length?chat.map(m=><div className={m.local?'chat-msg local':'chat-msg'} key={m.id}><b>{m.name}</b><span>{m.text}</span></div>):<p className="muted">{chatReady?'No messages yet.':'Connecting chat…'}</p>}<div ref={chatEndRef}/></div>{chatError&&<div className="chat-error">{chatError}</div>}<form className="chat-form" onSubmit={sendChat}><input value={message} onChange={e=>setMessage(e.target.value)} placeholder={chatReady?'Type a message…':'Connecting chat…'} disabled={!chatReady}/><button className="primary" type="submit" disabled={!chatReady||!message.trim()}>Send</button></form></aside>
    <aside id="participants-panel" className="meeting-side-panel participants-panel"><div className="side-head"><b>Participants ({participants.length+1})</b><button onClick={()=>document.getElementById('participants-panel')?.classList.remove('open')}>×</button></div><div className="participant-list"><div className="participant-row"><img src={avatar}/><span>{name} <small>• {role}</small></span></div>{participants.map(p=><div className="participant-row" key={p.identity}><img src={avatar}/><span>{p.name||p.identity}</span></div>)}</div></aside>

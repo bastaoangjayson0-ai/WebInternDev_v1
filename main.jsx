@@ -218,18 +218,18 @@ function AdminPanel({view,close,credentials,setCredentials,attendance,users,setU
 }
 function formatDate(v){return new Date(v).toLocaleString([], {dateStyle:'short',timeStyle:'short'})}
 function Stat({n,t}){return <div className="stat"><strong>{n}</strong><span>{t}</span></div>}
-function RoomCard({room,role,onJoin,onEnd}){return <div className="room-card"><div className="room-top"><span className="live">● LIVE</span><span>{room.participants}/50</span></div><h3>{room.title}</h3><p className="muted">Host: {room.host}</p><div className="room-actions">{role==='admin'?<button className="danger" onClick={onEnd}>End Meeting</button>:<button className="primary" onClick={onJoin}>{role==='host'?'Open Meeting':'Join Meeting'}</button>}</div></div>}
+function RoomCard({room,role,onJoin,onEnd}){return <div className="room-card"><div className="room-top"><span className="live">● LIVE</span><span>{room.participants}/50</span></div><h3>{room.title}</h3><p className="muted">Host: {room.host}</p><div className="room-actions">{role==='admin'?<><button className="primary" onClick={onJoin}>Join Room</button><button className="danger" onClick={onEnd}>End Meeting</button></>:<button className="primary" onClick={onJoin}>{role==='host'?'Open Meeting':'Join Meeting'}</button>}</div></div>}
 function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setMic,setSharing,setPinned,onLeave,onEnd,setToast}){
  const [connection,setConnection]=useState('connecting');
  const [participants,setParticipants]=useState([]);
  const [localTracks,setLocalTracks]=useState([]);
  const [screenTrack,setScreenTrack]=useState(null);
  const [remoteScreenTrack,setRemoteScreenTrack]=useState(null);
+ const [screenAspect,setScreenAspect]=useState(16/9);
  const [chat,setChat]=useState([]);
  const [message,setMessage]=useState('');
  const [micError,setMicError]=useState('');
  const [chatReady,setChatReady]=useState(false);
- const screenViewRef=useRef(null);
  const [chatError,setChatError]=useState('');
  const liveRoomRef=useRef(null);
  const chatEndRef=useRef(null);
@@ -259,7 +259,10 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
            const screenPub=Array.from(p.videoTrackPublications?.values?.()||[]).find(pub=>
              (pub.source==='screen_share' || pub.source==='screenShare') && pub.track
            );
-           if(screenPub?.track) activeRemoteScreen=screenPub.track;
+           if(screenPub?.track) {
+             try { screenPub.setSubscribed?.(true); screenPub.setVideoQuality?.(2); screenPub.setVideoDimensions?.({width:1920,height:1080}); screenPub.setVideoFPS?.(15); } catch {}
+             activeRemoteScreen=screenPub.track;
+           }
            list.push(p);
          });
          setParticipants(list);
@@ -269,12 +272,24 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
          if(!mounted.current)return;
          const isScreen=publication?.source==='screen_share' || publication?.source==='screenShare';
          if(isScreen) {
+           try { publication?.setSubscribed?.(true); publication?.setVideoQuality?.(2); publication?.setVideoDimensions?.({width:1920,height:1080}); publication?.setVideoFPS?.(15); } catch {}
            setRemoteScreenTrack(track || null);
            try{participant?.setVolume?.(REMOTE_AUDIO_VOLUME)}catch{}
          }
        };
        liveRoom.on(RoomEvent.ConnectionStateChanged,(state)=>setConnection(String(state).toLowerCase()));
-       liveRoom.on(RoomEvent.ParticipantConnected,refresh);
+       liveRoom.on(RoomEvent.ParticipantConnected,(participant)=>{
+         refresh();
+         try {
+           let participantRole='user';
+           if(participant?.metadata){
+             try { participantRole=JSON.parse(participant.metadata)?.role || 'user'; } catch {}
+           }
+           if(participantRole==='admin'){
+             setToast?.(`Admin ${participant?.name || participant?.identity || 'Admin'} is joining the meeting.`);
+           }
+         } catch {}
+       });
        liveRoom.on(RoomEvent.ParticipantDisconnected,refresh);
        liveRoom.on(RoomEvent.TrackSubscribed,(track,publication,participant)=>{
          setRemoteScreen(track,publication,participant);
@@ -291,6 +306,11 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
            // against browsers/devices that don't complete the automatic
            // subscription quickly enough.
            if (publication && !publication.isSubscribed) await publication.setSubscribed(true);
+           if (publication?.source==='screen_share' || publication?.source==='screenShare') {
+             publication.setVideoQuality?.(2);
+             publication.setVideoDimensions?.({width:1920,height:1080});
+             publication.setVideoFPS?.(15);
+           }
          } catch(e) {
            console.warn('Could not subscribe to newly published track:', e);
          }
@@ -318,9 +338,13 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        // Fallback for older LiveKit builds/tokens that do not expose chatMessage.
        liveRoom.on(RoomEvent.DataReceived,(payload,participant,kind,topic)=>{
          try{
-           if(topic && topic!=='chat') return;
            const text = typeof payload === 'string' ? payload : new TextDecoder().decode(payload);
            const msg=JSON.parse(text);
+           if(topic==='system' && msg?.type==='admin_joining'){
+             setToast?.(`Admin ${msg.name || 'Admin'} is joining the meeting.`);
+             return;
+           }
+           if(topic && topic!=='chat') return;
            if(msg?.type==='chat' && typeof msg.text==='string') appendChatMessage({id:msg.id,message:msg.text},participant,false);
          }catch(err){ /* ignore non-chat data */ }
        });
@@ -336,6 +360,13 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        });
        await liveRoom.connect(data.url, data.token);
        setConnection('connected');
+       if(role==='admin'){
+         setToast?.(`Admin ${name} is joining the meeting.`);
+         try {
+           const notice=new TextEncoder().encode(JSON.stringify({type:'admin_joining',name}));
+           await liveRoom.localParticipant.publishData(notice,{reliable:true,topic:'system'});
+         } catch(e) { console.warn('Admin join notice could not be broadcast:',e); }
+       }
        setChatReady(true);
        setChatError('');
 
@@ -346,6 +377,11 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
          for (const publication of participant.trackPublications.values()) {
            try {
              if (!publication.isSubscribed) await publication.setSubscribed(true);
+             if (publication?.source==='screen_share' || publication?.source==='screenShare') {
+               publication.setVideoQuality?.(2);
+               publication.setVideoDimensions?.({width:1920,height:1080});
+               publication.setVideoFPS?.(15);
+             }
            } catch (e) {
              console.warn('Initial remote track subscription failed:', participant.identity, publication.source, e);
            }
@@ -438,29 +474,35 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    if(!r||role!=='host')return;
    const next=!sharing;
    try{
-     const publication=await r.localParticipant.setScreenShareEnabled(next);
+     const publication=await r.localParticipant.setScreenShareEnabled(
+       next,
+       next ? {
+         // Use the browser's native picker: monitor, window, or browser tab.
+         // PDFs, PowerPoint, Excel, Word, websites, etc. can be shared when
+         // they are open in the selected window/tab.
+         contentHint:'detail',
+         resolution:{width:1920,height:1080,frameRate:15},
+         preferCurrentTab:false,
+         selfBrowserSurface:'include',
+         surfaceSwitching:'include',
+         systemAudio:'include',
+         audio:true
+       } : undefined,
+       next ? {
+         source:'screen_share',
+         simulcast:false,
+         degradationPreference:'maintain-resolution',
+         screenShareEncoding:{width:1920,height:1080,maxBitrate:10000000,maxFramerate:15}
+       } : undefined
+     );
      setSharing(next);
      if(!next){setPinned(false);screenTrackRef.current=null;setScreenTrack(null);}
      else {
        const pub=publication || Array.from(r.localParticipant.videoTrackPublications.values()).find(p=>p.source==='screen_share' && p.track);
-       if(pub?.track){
-         try{pub.track.mediaStreamTrack.contentHint='detail';}catch{}
-         screenTrackRef.current=pub.track;
-         setScreenTrack(pub.track);
-       } else throw new Error('The browser did not publish a screen-share track.');
+       if(pub?.track){screenTrackRef.current=pub.track;setScreenTrack(pub.track);}
+       else throw new Error('The browser did not publish a screen-share track.');
      }
    }catch(e){setSharing(false);setPinned(false);setToast?.('Screen sharing could not start. Check browser permission and try again.');}
- };
- const toggleScreenFullscreen=async()=>{
-   const root=screenViewRef.current;
-   const video=root?.querySelector?.('video');
-   try{
-     if(document.fullscreenElement){await document.exitFullscreen?.();return;}
-     if(root?.requestFullscreen){await root.requestFullscreen();return;}
-     if(video?.webkitEnterFullscreen){video.webkitEnterFullscreen();return;}
-     if(video?.requestFullscreen){await video.requestFullscreen();return;}
-     setToast?.('Full-screen mode is not supported by this browser.');
-   }catch(e){setToast?.('Full-screen mode was blocked by the browser. Try the browser full-screen option.');}
  };
  const sendChat=async(e)=>{
    e?.preventDefault();
@@ -478,7 +520,12 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        await r.localParticipant.publishData(data,{reliable:true,topic:'chat'});
        sent={id,message:text};
      }
-     appendChatMessage(sent,r.localParticipant,true);
+     const localText=typeof sent==='string' ? sent : (sent?.message || sent?.text || sent?.content || text);
+     const localId=(typeof sent==='object' && sent?.id) ? sent.id : crypto.randomUUID();
+     if (localText && !seenChatIdsRef.current.has(localId)) {
+       seenChatIdsRef.current.add(localId);
+       setChat(c=>c.concat({id:localId,name,text:localText.trim(),local:true}));
+     }
      setMessage('');
      setChatError('');
    } catch(err) {
@@ -501,9 +548,9 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    <div className="meeting-head"><div><b>{room.title}</b><span className="muted"> • {room.participants}/50</span></div><span className={connection==='connected'?'live':'connection-pill'}>{connection==='connected'?'● LIVE':connection==='connecting'?'Connecting…':connection.startsWith('error:')?'Connection error':'Reconnecting…'}</span></div>
    {connection.startsWith('error:')&&<div className="meeting-error">{connection.slice(6)}<button className="ghost small" onClick={()=>window.location.reload()}>Reload</button></div>}
    <div className={`stage ${pinned&&mainScreen?'pinned':''} ${showingScreen?'screen-active':''}`}>
-     <div ref={screenViewRef} className="main-tile">
-       {showingScreen?<LiveVideo track={mainScreen} className="screen-video" label={screenTrack?`${name} is sharing screen`:'Host is sharing screen'}/>:<div className="main-content">
-         {sharing&&screenTrack?<LiveVideo track={screenTrack} className="screen-video" label={`${name} is sharing screen`}/>:camera&&localTracks.find(t=>t.kind==='video')?<LiveVideo track={localTracks.find(t=>t.kind==='video')} className="local-video" label={name}/>:<div className="avatar-view"><img src={avatar}/><span>{name}</span></div>}
+     <div className="main-tile" style={showingScreen?{'--screen-aspect':screenAspect}:undefined}>
+       {showingScreen?<LiveVideo track={mainScreen} className="screen-video" label={screenTrack?`${name} is sharing screen`:'Host is sharing screen'} onAspectRatio={setScreenAspect}/>:<div className="main-content">
+         {sharing&&screenTrack?<LiveVideo track={screenTrack} className="screen-video" label={`${name} is sharing screen`} onAspectRatio={setScreenAspect}/>:camera&&localTracks.find(t=>t.kind==='video')?<LiveVideo track={localTracks.find(t=>t.kind==='video')} className="local-video" label={name}/>:<div className="avatar-view"><img src={avatar}/><span>{name}</span></div>}
        </div>}
        {(sharing||remoteScreenActive)&&<span className="share-label">🖥️ {screenTrack?`${name} is sharing screen`:'Host is sharing screen'}</span>}
      </div>
@@ -516,16 +563,15 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
      <div className="meeting-controls">
        <button aria-label={mic?'Mute microphone':'Unmute microphone'} title={mic?'Mute microphone':'Unmute microphone'} className={mic?'control active':'control'} onClick={toggleMic}><span className="meeting-symbol">{mic?'🎤':'🔇'}</span><span>{mic?'Mute':'Unmute'}</span></button>
        <button aria-label={camera?'Turn camera off':'Turn camera on'} title={camera?'Turn camera off':'Turn camera on'} className={camera?'control active':'control'} onClick={toggleCamera}><span className="meeting-symbol">{camera?'📹':'📷'}</span><span>Camera</span></button>
-       {role==='host'&&<button aria-label={sharing?'Stop sharing screen':'Share screen'} title={sharing?'Stop sharing screen':'Share screen'} className={sharing?'control active':'control'} onClick={toggleScreen}><span className="meeting-symbol">🖥️</span><span>{sharing?'Stop share':'Share'}</span></button>}
-       {showingScreen&&<>
-         <button aria-label={pinned?'Unpin screen':'Pin screen'} title={pinned?'Unpin screen':'Pin screen'} className={pinned?'control active':'control'} onClick={()=>setPinned(!pinned)}><span className="meeting-symbol">📌</span><span>{pinned?'Unpin':'Pin'}</span></button>
-         <button aria-label="Full screen shared screen" title="Full screen" className="control" onClick={toggleScreenFullscreen}><span className="meeting-symbol">⛶</span><span>Full screen</span></button>
+       {role==='host'&&<>
+         <button aria-label={sharing?'Stop sharing screen':'Share screen'} title={sharing?'Stop sharing screen':'Share screen'} className={sharing?'control active':'control'} onClick={toggleScreen}><span className="meeting-symbol">🖥️</span><span>{sharing?'Stop share':'Share'}</span></button>
+         <button aria-label={pinned?'Unpin screen':'Pin screen'} title={pinned?'Unpin screen':'Pin screen'} disabled={!showingScreen} className={pinned?'control active':'control'} onClick={()=>setPinned(!pinned)}><span className="meeting-symbol">📌</span><span>{pinned?'Unpin':'Pin'}</span></button>
        </>}
        <button aria-label="Open chat" title="Chat" className="control" onClick={()=>document.getElementById('chat-panel')?.classList.toggle('open')}><span className="meeting-symbol">💬</span><span>Chat</span></button>
        <button aria-label="Open participants" title="Participants" className="control" onClick={()=>document.getElementById('participants-panel')?.classList.toggle('open')}><span className="meeting-symbol">👥</span><span>People</span></button>
        {role==='host'?<button aria-label="End meeting" title="End meeting" className="danger control end-control" onClick={onEnd}><span className="meeting-symbol">⛔</span><span>End</span></button>:<button aria-label="Leave meeting" title="Leave meeting" className="danger control end-control" onClick={onLeave}><span className="meeting-symbol">↩️</span><span>Leave</span></button>}
      </div>
-     {role==='host'&&<div className="host-note">Host controls: screen share + pin/unpin. Pinning is responsive across desktop, tablet, and mobile.</div>}
+     {role==='host'&&<div className="host-note">Host controls: screen share + pin/unpin. Click Share to use your browser's chooser: select an entire screen, an open window, or a browser tab. You can share a PDF, PowerPoint, Excel sheet, Word file, website, or any other content visible in the selected window/tab. System audio is offered when the browser supports it.</div>}
    </div>
    <aside id="chat-panel" className="meeting-side-panel"><div className="side-head"><b>Chat</b><button onClick={()=>document.getElementById('chat-panel')?.classList.remove('open')}>×</button></div><div className="chat-list">{chat.length?chat.map(m=><div className={m.local?'chat-msg local':'chat-msg'} key={m.id}><b>{m.name}</b><span>{m.text}</span></div>):<p className="muted">{chatReady?'No messages yet.':'Connecting chat…'}</p>}<div ref={chatEndRef}/></div>{chatError&&<div className="chat-error">{chatError}</div>}<form className="chat-form" onSubmit={sendChat}><input value={message} onChange={e=>setMessage(e.target.value)} placeholder={chatReady?'Type a message…':'Connecting chat…'} disabled={!chatReady}/><button className="primary" type="submit" disabled={!chatReady||!message.trim()}>Send</button></form></aside>
    <aside id="participants-panel" className="meeting-side-panel participants-panel"><div className="side-head"><b>Participants ({participants.length+1})</b><button onClick={()=>document.getElementById('participants-panel')?.classList.remove('open')}>×</button></div><div className="participant-list"><div className="participant-row"><img src={avatar}/><span>{name} <small>• {role}</small></span></div>{participants.map(p=><div className="participant-row" key={p.identity}><img src={avatar}/><span>{p.name||p.identity}</span></div>)}</div></aside>
@@ -557,7 +603,7 @@ function AudioTrack({track}){
  },[track]);
  return <div ref={ref} aria-hidden="true"/>;
 }
-function LiveVideo({track,className,label}){const ref=useRef(null);useEffect(()=>{if(!track||!ref.current)return;const el=track.attach();el.className=className||'';el.autoplay=true;el.playsInline=true;el.muted=false;el.setAttribute('playsinline','');el.setAttribute('webkit-playsinline','');el.style.objectFit=className?.includes('screen-video')?'contain':'cover';el.style.objectPosition='center center';el.style.width='100%';el.style.height='100%';const syncAspect=()=>{if(className?.includes('screen-video')&&el.videoWidth&&el.videoHeight){el.style.aspectRatio=`${el.videoWidth}/${el.videoHeight}`;}};el.addEventListener('loadedmetadata',syncAspect);ref.current.innerHTML='';ref.current.appendChild(el);syncAspect();return()=>{el.removeEventListener('loadedmetadata',syncAspect);try{track.detach(el);el.remove()}catch{}}},[track,className]);return <div ref={ref} className={`live-video-wrap ${className?.includes('screen-video')?'screen-video-wrap':''}`} aria-label={label}/>}
+function LiveVideo({track,className,label,onAspectRatio}){const ref=useRef(null);useEffect(()=>{if(!track||!ref.current)return;const el=track.attach();el.className=className||'';el.autoplay=true;el.playsInline=true;ref.current.innerHTML='';ref.current.appendChild(el);const updateAspect=()=>{if(el.videoWidth&&el.videoHeight&&onAspectRatio)onAspectRatio(el.videoWidth/el.videoHeight)};el.addEventListener?.('loadedmetadata',updateAspect);updateAspect();return()=>{el.removeEventListener?.('loadedmetadata',updateAspect);try{track.detach(el);el.remove()}catch{}}},[track,className,onAspectRatio]);return <div ref={ref} className="live-video-wrap" aria-label={label}/> }
 function ParticipantTile({item,avatar}){const videoTrack=item.participant?Array.from(item.participant.videoTrackPublications?.values?.()||[]).find(p=>p.source==='camera'&&p.track)?.track||null:null;return <div className="thumb">{videoTrack?<LiveVideo track={videoTrack} className="thumb-video" label={item.name}/>:<img src={avatar}/>}<span>{item.name}{item.role==='host'?' • Host':''}</span></div>}
 
 createRoot(document.getElementById('root')).render(<App/>);
