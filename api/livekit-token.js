@@ -1,43 +1,108 @@
 import { AccessToken } from 'livekit-server-sdk';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+const json = (body, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  },
+});
 
-  try {
-    const { roomName, participantName, role } = req.body || {};
-    const cleanRoom = String(roomName || '').trim();
-    const cleanName = String(participantName || '').trim();
-    const cleanRole = String(role || '').trim().toLowerCase();
-
-    if (!cleanRoom || !cleanName || !['host', 'user'].includes(cleanRole)) {
-      return res.status(400).json({ error: 'roomName, participantName and a valid role are required.' });
+export default {
+  async fetch(request) {
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        },
+      });
     }
 
-    if (!process.env.LIVEKIT_API_KEY || !process.env.LIVEKIT_API_SECRET || !process.env.LIVEKIT_URL) {
-      return res.status(500).json({ error: 'LiveKit environment variables are not configured.' });
+    if (request.method === 'GET') {
+      return json({
+        ok: true,
+        configured: Boolean(
+          process.env.LIVEKIT_URL &&
+          process.env.LIVEKIT_API_KEY &&
+          process.env.LIVEKIT_API_SECRET
+        ),
+        urlConfigured: Boolean(process.env.LIVEKIT_URL),
+        apiKeyConfigured: Boolean(process.env.LIVEKIT_API_KEY),
+        apiSecretConfigured: Boolean(process.env.LIVEKIT_API_SECRET),
+      });
     }
 
-    const identity = `${cleanRole}-${cleanName.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 48)}-${Math.random().toString(36).slice(2, 8)}`;
-    const token = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, {
-      identity,
-      name: cleanName,
-      metadata: JSON.stringify({ role: cleanRole })
-    });
+    if (request.method !== 'POST') {
+      return json({ error: 'Method not allowed' }, 405);
+    }
 
-    token.addGrant({
-      roomJoin: true,
-      room: cleanRoom,
-      canPublish: true,
-      canSubscribe: true,
-      canPublishData: true,
-      canPublishSources: cleanRole === 'host' ? ['camera', 'microphone', 'screen_share'] : ['camera', 'microphone']
-    });
+    try {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return json({ error: 'Request body must be valid JSON.' }, 400);
+      }
 
-    return res.status(200).json({ token: await token.toJwt(), url: process.env.LIVEKIT_URL });
-  } catch (error) {
-    console.error('LiveKit token error:', error);
-    return res.status(500).json({ error: 'Unable to create LiveKit token.' });
-  }
-}
+      const roomName = String(body?.roomName ?? '').trim();
+      const participantName = String(body?.participantName ?? '').trim();
+      const role = String(body?.role ?? '').trim().toLowerCase();
+
+      if (!roomName || !participantName || !['host', 'user'].includes(role)) {
+        return json({
+          error: 'roomName, participantName and role (host or user) are required.'
+        }, 400);
+      }
+
+      const apiKey = process.env.LIVEKIT_API_KEY?.trim();
+      const apiSecret = process.env.LIVEKIT_API_SECRET?.trim();
+      const livekitUrl = process.env.LIVEKIT_URL?.trim();
+
+      if (!apiKey || !apiSecret || !livekitUrl) {
+        return json({
+          error: 'LiveKit environment variables are missing in this Vercel deployment.',
+          configured: {
+            url: Boolean(livekitUrl),
+            apiKey: Boolean(apiKey),
+            apiSecret: Boolean(apiSecret),
+          }
+        }, 500);
+      }
+
+      const identityBase = participantName
+        .replace(/[^a-zA-Z0-9_-]/g, '-')
+        .replace(/-+/g, '-')
+        .slice(0, 48) || 'participant';
+      const identity = `${role}-${identityBase}-${crypto.randomUUID().slice(0, 8)}`;
+
+      const token = new AccessToken(apiKey, apiSecret, {
+        identity,
+        name: participantName,
+        metadata: JSON.stringify({ role }),
+        ttl: '2h',
+      });
+
+      token.addGrant({
+        roomJoin: true,
+        room: roomName,
+        canPublish: true,
+        canSubscribe: true,
+        canPublishData: true,
+      });
+
+      return json({
+        token: await token.toJwt(),
+        url: livekitUrl,
+      }, 200);
+    } catch (error) {
+      console.error('LiveKit token generation failed:', error);
+      return json({
+        error: 'LiveKit token generation failed.',
+        detail: error instanceof Error ? error.message : String(error),
+      }, 500);
+    }
+  },
+};

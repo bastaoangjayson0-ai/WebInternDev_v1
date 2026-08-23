@@ -123,7 +123,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
      try{
        const resp=await fetch('/api/livekit-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({roomName:room.id,participantName:name,role})});
        const data=await resp.json();
-       if(!resp.ok) throw new Error(data.error||'Unable to create meeting token.');
+       if(!resp.ok) throw new Error(data.error||data.detail||`Token endpoint returned HTTP ${resp.status}.`);
        const {Room,RoomEvent,Track,createLocalTracks}=await import('livekit-client');
        liveRoom=new Room({adaptiveStream:true,dynacast:true});
        liveRoomRef.current=liveRoom;

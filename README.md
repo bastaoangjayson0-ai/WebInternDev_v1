@@ -1,19 +1,21 @@
-# WebInternDev V1.2.1 — LiveKit endpoint fix
+# WebInternDev v1.2.2
 
-This version fixes the Vercel SPA rewrite that was intercepting `/api/livekit-token` and returning `index.html` instead of executing the serverless function.
+LiveKit token endpoint hardened for Vercel Node.js Functions.
 
 ## Vercel environment variables
 
-Set these in Vercel:
+- LIVEKIT_URL
+- LIVEKIT_API_KEY
+- LIVEKIT_API_SECRET
 
-- `LIVEKIT_URL`
-- `LIVEKIT_API_KEY`
-- `LIVEKIT_API_SECRET`
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_PUBLISHABLE_KEY`
+Keep LIVEKIT_API_SECRET server-side only.
 
-Keep `LIVEKIT_API_SECRET` server-side and never expose it as a `VITE_` variable.
+## Token endpoint health check
 
-## Deploy
+After deployment, open:
 
-Upload the contents of this folder to the existing Vercel project and redeploy. The `/api/livekit-token` function is now allowed to reach Vercel's serverless runtime.
+`https://YOUR-DOMAIN.vercel.app/api/livekit-token`
+
+It should return JSON with `ok: true` and `configured: true`.
+
+If `configured` is false, check the three Vercel environment variables and redeploy.
