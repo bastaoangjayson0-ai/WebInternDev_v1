@@ -14,7 +14,6 @@ const write=(key,value)=>localStorage.setItem(key,JSON.stringify(value));
 function App(){
  const [role,setRole]=useState(null),[page,setPage]=useState('entry'),[name,setName]=useState(''),[password,setPassword]=useState(''),[rooms,setRooms]=useState(()=>read('wid_rooms',defaultRooms)),[currentRoom,setCurrentRoom]=useState(null),[camera,setCamera]=useState(false),[mic,setMic]=useState(true),[sharing,setSharing]=useState(false),[pinned,setPinned]=useState(false),[toast,setToast]=useState('');
  const [adminView,setAdminView]=useState(null);
- const [syncStatus,setSyncStatus]=useState('connecting');
  const [credentials,setCredentials]=useState(()=>read('wid_credentials',DEFAULTS));
  const [attendance,setAttendance]=useState(()=>read('wid_attendance',[]));
  const [knownUsers,setKnownUsers]=useState(()=>read('wid_users',[]));
@@ -26,64 +25,45 @@ function App(){
    let cancelled=false;
    (async()=>{
      try{
-       const [rr,uu,aa,ss]=await Promise.all([
-         dbList('wid_rooms','?select=*&active=eq.true&order=created_at.desc'),
-         dbList('wid_users','?select=*'),
-         dbList('wid_attendance','?select=*&order=joined_at.desc'),
-         dbList('wid_settings','?select=*&id=eq.1')
-       ]);
+       const [rr,uu,aa,ss]=await Promise.all([dbList('wid_rooms','?select=*&order=created_at.desc'),dbList('wid_users','?select=*'),dbList('wid_attendance','?select=*&order=joined_at.desc'),dbList('wid_settings','?select=*\&id=eq.1')]);
        if(cancelled)return;
-       setSyncStatus('online');
-       setRooms(Array.isArray(rr)?rr.map(mapRoom):[]);
+       if(Array.isArray(rr))setRooms(rr.map(mapRoom));
        if(Array.isArray(uu))setKnownUsers(uu.map(u=>({name:u.name,role:u.role})));
        if(Array.isArray(aa))setAttendance(aa.map(mapAttendance));
        if(Array.isArray(ss)&&ss[0])setCredentials(c=>({...c,hostPassword:ss[0].host_password,userPassword:ss[0].user_password}));
-     }catch(e){
-       if(cancelled)return;
-       setSyncStatus('error');
-       console.error('Supabase initial sync unavailable:',e);
-     }
+     }catch(e){console.warn('Supabase initial sync unavailable:',e.message)}
    })();
    return()=>{cancelled=true};
  },[]);
  useEffect(()=>{
-   let mounted=true;
    const channel=supabase.channel('wid-rooms-live')
-     .on('postgres_changes',{event:'INSERT',schema:'public',table:'wid_rooms'},payload=>{
-       if(!mounted||!payload.new?.active)return;
-       const next=mapRoom(payload.new);
-       setRooms(prev=>prev.some(r=>r.id===next.id)?prev:[next,...prev]);
+     .on('postgres_changes',{event:'*',schema:'public',table:'wid_rooms'},payload=>{
+       const next=payload.new ? mapRoom(payload.new) : null;
+       if(payload.eventType==='DELETE' && payload.old?.id){
+         setRooms(prev=>prev.filter(r=>r.id!==payload.old.id));
+       } else if(next){
+         setRooms(prev=>{
+           const exists=prev.some(r=>r.id===next.id);
+           return exists ? prev.map(r=>r.id===next.id?next:r) : [next,...prev];
+         });
+       }
      })
-     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'wid_rooms'},payload=>{
-       if(!mounted)return;
-       const next=payload.new?mapRoom(payload.new):null;
-       if(!next)return;
-       setRooms(prev=>next.active?prev.some(r=>r.id===next.id)?prev.map(r=>r.id===next.id?next:r):[next,...prev]:prev.filter(r=>r.id!==next.id));
-     })
-     .on('postgres_changes',{event:'DELETE',schema:'public',table:'wid_rooms'},payload=>{
-       if(!mounted)return;
-       if(payload.old?.id)setRooms(prev=>prev.filter(r=>r.id!==payload.old.id));
-     })
-     .subscribe(status=>{
-       if(!mounted)return;
-       if(status==='SUBSCRIBED')setSyncStatus('online');
-       else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')setSyncStatus('error');
-     });
-   return()=>{mounted=false;supabase.removeChannel(channel)};
+     .subscribe();
+   return()=>{supabase.removeChannel(channel)};
  },[]);
  useEffect(()=>{
    if(!role || page==='meeting') return;
    let cancelled=false;
-   const refresh=async()=>{
-     try{
-       const rr=await dbList('wid_rooms','?select=*&active=eq.true&order=created_at.desc');
-       if(!cancelled&&Array.isArray(rr)){setSyncStatus('online');setRooms(rr.map(mapRoom));}
-     }catch(e){if(!cancelled){setSyncStatus('error');console.warn('Room refresh failed:',e.message)}}
-   };
+   const refresh=async()=>{try{const rr=await dbList('wid_rooms','?select=*&active=eq.true&order=created_at.desc'); if(!cancelled && Array.isArray(rr)) setRooms(prev=>{const remote=rr.map(mapRoom); const remoteIds=new Set(remote.map(r=>r.id)); const localActive=prev.filter(r=>r.active && !remoteIds.has(r.id)); return [...remote,...localActive];});}catch(e){console.warn('Room refresh:',e.message)}};
    refresh();
-   const timer=setInterval(refresh,3000);
+   const timer=setInterval(refresh,5000);
    return()=>{cancelled=true;clearInterval(timer)};
  },[role,page]);
+ useEffect(()=>{
+   if(!rooms.length)return;
+   const fresh=rooms;
+   (async()=>{try{for(const r of fresh){await dbUpsert('wid_rooms',{id:r.id,title:r.title,host:r.host,participants:r.participants,active:r.active,created_at:new Date(r.createdAt||Date.now()).toISOString()})}}catch(e){console.warn('Room sync:',e.message)}})();
+ },[rooms]);
  useEffect(()=>{
    if(!attendance.length)return;
    const a=attendance[attendance.length-1];
@@ -106,35 +86,18 @@ function App(){
    }
    setPage('dashboard');setToast(`Welcome to WebInternDev, ${name || role}!`)
  }
- async function createRoom(){
-   if(activeRooms.length>=2){setToast('Maximum of 2 active meeting rooms has been reached.');return}
-   const title=window.prompt('Meeting title:','Web Development Class');
-   if(!title?.trim())return;
-   const id=crypto.randomUUID();
-   const createdAt=new Date().toISOString();
-   try{
-     const rows=await dbUpsert('wid_rooms',{id,title:title.trim(),host:name,participants:0,active:true,created_at:createdAt});
-     const saved=Array.isArray(rows)&&rows[0]?mapRoom(rows[0]):{id,title:title.trim(),host:name,participants:0,active:true,createdAt};
-     setRooms(prev=>[saved,...prev.filter(r=>r.id!==saved.id)]);
-     setSyncStatus('online');
-     setToast('Meeting created. It is now available to Users.');
-   }catch(e){
-     setSyncStatus('error');
-     setToast(`Meeting was NOT published: ${e.message}`);
-     console.error('createRoom failed',e);
-   }
- }
+ async function createRoom(){if(activeRooms.length>=2){setToast('Maximum of 2 active meeting rooms has been reached.');return} const title=window.prompt('Meeting title:','Web Development Class'); if(!title?.trim())return; const room={id:crypto.randomUUID(),title:title.trim(),host:name,participants:0,active:true,createdAt:Date.now()}; try{await dbUpsert('wid_rooms',{id:room.id,title:room.title,host:room.host,participants:0,active:true,created_at:new Date(room.createdAt).toISOString()}); setRooms(x=>[room,...x.filter(r=>r.id!==room.id)]); setToast('Meeting created successfully. Users can now see it.')}catch(e){setToast(`Could not publish meeting: ${e.message}`);console.error(e)}}
  function joinRoom(room){if(role==='user'&&room.participants>=50){setToast('This meeting is full.');return} setCurrentRoom(room); setPage('meeting'); const now=new Date().toISOString(); setAttendance(a=>a.concat({id:crypto.randomUUID(),name,role,roomId:room.id,roomTitle:room.title,host:room.host,joinedAt:now,leftAt:null,duration:null})); setRooms(x=>x.map(r=>r.id===room.id?{...r,participants:Math.min(50,r.participants+(role==='user'?1:0))}:r));}
  function leaveMeeting(){if(!currentRoom)return; const now=new Date(); setAttendance(a=>a.map(x=>{if(x.name===name&&x.roomId===currentRoom.id&&!x.leftAt){const joined=new Date(x.joinedAt);return {...x,leftAt:now.toISOString(),duration:Math.max(0,Math.round((now-joined)/60000))}}return x})); setRooms(x=>x.map(r=>r.id===currentRoom.id?{...r,participants:Math.max(0,r.participants-(role==='user'?1:0))}:r));setCurrentRoom(null);setPage('dashboard');setSharing(false);setPinned(false);setToast('You left the meeting. You can rejoin while it is active.')}
- async function endRoom(){if(!currentRoom)return; const now=new Date();setAttendance(a=>a.map(x=>x.roomId===currentRoom.id&&!x.leftAt?{...x,leftAt:now.toISOString(),duration:Math.max(0,Math.round((now-new Date(x.joinedAt))/60000))}:x));try{await dbUpdate('wid_rooms',`?id=eq.${currentRoom.id}`,{active:false,participants:0});setRooms(x=>x.filter(r=>r.id!==currentRoom.id));setToast('Meeting ended.')}catch(e){setToast(`Could not end meeting online: ${e.message}`);return}setCurrentRoom(null);setPage('dashboard');setSharing(false);setPinned(false)}
- async function adminEnd(room){try{await dbUpdate('wid_rooms',`?id=eq.${room.id}`,{active:false,participants:0});setRooms(x=>x.filter(r=>r.id!==room.id));setAttendance(a=>a.map(x=>x.roomId===room.id&&!x.leftAt?{...x,leftAt:new Date().toISOString()}:x));setToast(`${room.title} ended.`)}catch(e){setToast(`Could not end meeting online: ${e.message}`)}}
+ function endRoom(){if(!currentRoom)return; const now=new Date();setAttendance(a=>a.map(x=>x.roomId===currentRoom.id&&!x.leftAt?{...x,leftAt:now.toISOString(),duration:Math.max(0,Math.round((now-new Date(x.joinedAt))/60000))}:x));setRooms(x=>x.map(r=>r.id===currentRoom.id?{...r,active:false,participants:0}:r));setCurrentRoom(null);setPage('dashboard');setSharing(false);setPinned(false);setToast('Meeting ended.')}
+ function adminEnd(room){setRooms(x=>x.map(r=>r.id===room.id?{...r,active:false,participants:0}:r));setAttendance(a=>a.map(x=>x.roomId===room.id&&!x.leftAt?{...x,leftAt:new Date().toISOString()}:x));setToast(`${room.title} ended.`)}
  function signOut(){setRole(null);setPage('entry');setName('');setPassword('');setCurrentRoom(null);setAdminView(null)}
  return <div className="app">
   <header className="topbar"><button className="brand" onClick={()=>{setPage(role?'dashboard':'entry');setAdminView(null)}}><img src={logo}/><span>WebInternDev</span></button>{role&&<div className="top-actions"><span className="role-pill">{role==='admin'?'Admin':role==='host'?'Host':'User'}</span><button className="ghost" onClick={signOut}>Sign out</button></div>}</header>
   <main>
    {page==='entry'&&<Entry onSelect={enterRole}/>}
    {page==='login'&&<Login role={role} name={name} setName={setName} password={password} setPassword={setPassword} onSubmit={login} onBack={()=>setPage('entry')}/>} 
-   {page==='dashboard'&&<Dashboard role={role} name={name} rooms={activeRooms} syncStatus={syncStatus} onCreate={createRoom} onJoin={joinRoom} onEnd={adminEnd} onOpenAdmin={setAdminView} adminView={adminView} credentials={credentials} setCredentials={setCredentials} attendance={attendance} users={knownUsers} setUsers={setKnownUsers} toast={setToast}/>} 
+   {page==='dashboard'&&<Dashboard role={role} name={name} rooms={activeRooms} onCreate={createRoom} onJoin={joinRoom} onEnd={adminEnd} onOpenAdmin={setAdminView} adminView={adminView} credentials={credentials} setCredentials={setCredentials} attendance={attendance} users={knownUsers} setUsers={setKnownUsers} toast={setToast}/>} 
    {page==='meeting'&&<Meeting role={role} name={name} room={currentRoom} avatar={avatar} camera={camera} mic={mic} sharing={sharing} pinned={pinned} setCamera={setCamera} setMic={setMic} setSharing={setSharing} setPinned={setPinned} onLeave={leaveMeeting} onEnd={endRoom}/>} 
   </main>{toast&&<div className="toast">{toast}</div>}<footer>WebInternDev • Responsive meeting platform</footer>
  </div>
@@ -142,11 +105,11 @@ function App(){
 function Entry({onSelect}){return <section className="hero"><div className="hero-card entry-card"><div className="hero-brand-wrap"><img className="hero-logo" src={logo}/></div><div className="entry-intro"><span className="entry-kicker">SECURE • SIMPLE • CONNECTED</span><h1>How do you want to enter?</h1><p>Select your role to continue to WebInternDev.</p></div><div className="role-grid"><RoleCard title="Admin" desc="Monitor meetings and manage the platform" onClick={()=>onSelect('admin')} icon="admin"/><RoleCard title="Host" desc="Create meetings and share your screen" onClick={()=>onSelect('host')} icon="host"/><RoleCard title="User" desc="Join an active meeting and collaborate" onClick={()=>onSelect('user')} icon="user"/></div><div className="entry-footer"><span>WebInternDev</span><span>Professional meeting workspace</span></div></div></section>}
 function RoleCard({title,desc,onClick,icon}){const paths={admin:<><path d="M4 19.5V9.8L12 5l8 4.8v9.7"/><path d="M8 19.5v-6h8v6M3 19.5h18M9 9.5h6"/></>,host:<><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m8 9 5 3-5 3V9ZM16 9h2M16 12h2M16 15h2"/></>,user:<><circle cx="12" cy="8" r="3.5"/><path d="M5.5 19c.8-3.2 3-5 6.5-5s5.7 1.8 6.5 5"/></>};return <button className="role-card" onClick={onClick}><span className="role-icon"><svg viewBox="0 0 24 24">{paths[icon]}</svg></span><span>{title}</span><small>{desc}</small><strong>Continue <i>→</i></strong></button>}
 function Login({role,name,setName,password,setPassword,onSubmit,onBack}){return <section className="center"><div className="panel login-panel"><div className="login-mark">{role==='admin'?'A':role==='host'?'H':'U'}</div><h1>{role==='admin'?'Admin Login':role==='host'?'Host Login':'User Login'}</h1><p className="muted">{role==='admin'?'Use the administrator account.':'Enter your name and shared role password.'}</p><form onSubmit={onSubmit}><label>Name<input value={name} onChange={e=>setName(e.target.value)} placeholder={role==='admin'?'Bastaoang Jayson A':'Enter your name'} required/></label><label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" required/></label><button className="primary wide">Continue</button></form><button className="link-btn" onClick={onBack}>← Back</button></div></section>}
-function Dashboard({role,name,rooms,syncStatus,onCreate,onJoin,onEnd,onOpenAdmin,adminView,credentials,setCredentials,attendance,users,setUsers,toast}){
+function Dashboard({role,name,rooms,onCreate,onJoin,onEnd,onOpenAdmin,adminView,credentials,setCredentials,attendance,users,setUsers,toast}){
  const [selectedRoom,setSelectedRoom]=useState(null);
  return <section className="dashboard"><div className="welcome"><div><span className="eyebrow">Welcome to WebInternDev!</span><h1>{name||role}</h1><p className="muted">{role==='admin'?'Monitor and manage your meeting platform.':role==='host'?'Create a room and present to up to 50 participants.':'Choose an active meeting to join.'}</p></div>{role==='host'&&<button className="primary" onClick={onCreate}>＋ Create Meeting</button>}</div>
  {role==='admin'&&<div className="stats"><Stat n={rooms.length} t="Active Meetings"/><Stat n={rooms.reduce((a,r)=>a+r.participants,0)} t="Participants"/><Stat n="50" t="Capacity / Room"/><Stat n="2" t="Room Limit"/></div>}
- <div className="section-head"><h2>{role==='admin'?'Active Meetings':'Available Meetings'}</h2><span>{rooms.length}/2 active • {syncStatus==='online'?'● Online sync':syncStatus==='connecting'?'Connecting…':'⚠ Sync error'}</span></div><div className="room-actions"><button className="ghost small" onClick={async()=>{try{const rr=await dbList('wid_rooms','?select=*&active=eq.true&order=created_at.desc');setRooms(rr.map(mapRoom));setSyncStatus('online');setToast('Meeting list refreshed.')}catch(e){setSyncStatus('error');setToast('Unable to reach Supabase. Check the database table and RLS policies.')}}}>↻ Refresh meetings</button></div><div className="room-grid">{rooms.length?rooms.map(r=><RoomCard key={r.id} room={r} role={role} onJoin={()=>{setSelectedRoom(r);onJoin(r)}} onEnd={()=>onEnd(r)}/>):<div className="empty"><b>No active meetings</b><p>{role==='host'?'Create your first meeting to get started.':'Wait for a Host to create a meeting.'}</p></div>}</div>
+ <div className="section-head"><h2>{role==='admin'?'Active Meetings':'Available Meetings'}</h2><span>{rooms.length}/2 active</span></div><div className="room-grid">{rooms.length?rooms.map(r=><RoomCard key={r.id} room={r} role={role} onJoin={()=>{setSelectedRoom(r);onJoin(r)}} onEnd={()=>onEnd(r)}/>):<div className="empty"><b>No active meetings</b><p>{role==='host'?'Create your first meeting to get started.':'Wait for a Host to create a meeting.'}</p></div>}</div>
  {role==='admin'&&<><div className="section-head"><h2>Admin controls</h2></div><div className="control-grid"><AdminControl title="User Management" icon="users" desc="View users who have entered WebInternDev and manage their access." onClick={()=>onOpenAdmin('users')}/><AdminControl title="Password Management" icon="lock" desc="Change the Host and User shared passwords." onClick={()=>onOpenAdmin('passwords')}/><AdminControl title="Attendance" icon="calendar" desc="View join time, leave time, duration, room and participant history." onClick={()=>onOpenAdmin('attendance')}/></div>{adminView&&<AdminPanel view={adminView} close={()=>onOpenAdmin(null)} credentials={credentials} setCredentials={setCredentials} attendance={attendance} users={users} setUsers={setUsers} toast={toast}/>}</>}
  </section>
 }

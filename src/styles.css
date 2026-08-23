@@ -44,3 +44,4 @@
  .host-note{text-align:center;font-size:11px}
  .meeting-error{font-size:12px}
 }
+.room-actions{display:flex;justify-content:flex-end;margin:-12px 0 12px}.ghost.small{padding:8px 12px;font-size:.85rem}
