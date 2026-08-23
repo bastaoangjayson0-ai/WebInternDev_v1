@@ -232,6 +232,7 @@ function MeetingIcon({type}){
   pin:<><path d="m15 3 6 6-3 1-3 5 1.5 1.5-2 2-1.5-1.5-5 3-1-3 5-5-1-3z"/><path d="m4 20 5-5"/></>,
   chat:<><path d="M4 5.5h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-5 3v-3.1a2 2 0 0 1-3-1.9v-8a2 2 0 0 1 2-2z"/><path d="M7 11.5h.01M12 11.5h.01M17 11.5h.01"/></>,
   people:<><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3 2.5-4.7 5.5-4.7s4.9 1.7 5.5 4.7"/><path d="M16 6.5a3 3 0 0 1 0 5.8M17 14.5c2.1.6 3.4 2 3.8 4.5"/></>,
+  react:<><circle cx="12" cy="12" r="8.5"/><path d="M8.7 10h.01M15.3 10h.01M8.2 14.4c1.2 1.4 2.5 2 3.8 2s2.6-.6 3.8-2"/><path d="M5.8 4.8 4.5 3.5M18.2 4.8l1.3-1.3"/></>,
   end:<><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></>,
   leave:<><path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M13 8l4 4-4 4M8 12h9"/></>,
   fitScreen:<><rect x="5" y="5" width="11" height="13" rx="1.5"/><rect x="8" y="2" width="11" height="13" rx="1.5"/></>,
@@ -371,6 +372,10 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
          }
          refresh();
        });
+       // Camera mute/unmute does not always unpublish the track. Refreshing here
+       // forces the tile to switch between live video and the avatar fallback.
+       if(RoomEvent.TrackMuted) liveRoom.on(RoomEvent.TrackMuted,refresh);
+       if(RoomEvent.TrackUnmuted) liveRoom.on(RoomEvent.TrackUnmuted,refresh);
        liveRoom.on(RoomEvent.LocalTrackPublished,refresh);
        liveRoom.on(RoomEvent.LocalTrackUnpublished,refresh);
        const appendChatMessage=(message,participant,local=false)=>{
@@ -394,10 +399,11 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
              setToast?.(`Admin ${msg.name || 'Admin'} is joining the meeting.`);
              return;
            }
-           if(topic==='reaction' && msg?.type==='reaction' && msg.emoji){
+           // Accept reactions with or without a LiveKit topic for compatibility.
+           if(msg?.type==='reaction' && msg.emoji){
              const id=msg.id||crypto.randomUUID();
-             setReactions(r=>r.concat({id,emoji:msg.emoji,name:participant?.name||participant?.identity||'Participant'}));
-             setTimeout(()=>setReactions(r=>r.filter(x=>x.id!==id)),2800);
+             setReactions(r=>r.some(x=>x.id===id)?r:r.concat({id,emoji:msg.emoji,name:participant?.name||participant?.identity||'Participant',seed:msg.seed||Math.random()}));
+             setTimeout(()=>setReactions(r=>r.filter(x=>x.id!==id)),3600);
              return;
            }
            if(topic && topic!=='chat') return;
@@ -570,16 +576,19 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  };
  const sendReaction=async(emoji)=>{
    const r=liveRoomRef.current;
-   if(!r || r.state!=='connected'){setToast?.('Reactions are waiting for the meeting connection.');return;}
    const id=crypto.randomUUID();
-   const item={id,emoji,name};
-   setReactions(list=>list.concat(item));
-   setTimeout(()=>setReactions(list=>list.filter(x=>x.id!==id)),2800);
+   const seed=Math.random();
+   const item={id,emoji,name,seed};
+   setReactions(list=>list.some(x=>x.id===id)?list:list.concat(item));
+   setTimeout(()=>setReactions(list=>list.filter(x=>x.id!==id)),3600);
    setReactionPicker(false);
-   try{
-     const payload=new TextEncoder().encode(JSON.stringify({type:'reaction',id,emoji}));
-     await r.localParticipant.publishData(payload,{reliable:true,topic:'reaction'});
-   }catch(e){console.warn('Reaction broadcast failed:',e);setToast?.('Could not send reaction to everyone.');}
+   if(!r?.localParticipant){setToast?.('Reaction sent locally. Connecting to others…');return;}
+   const payload=new TextEncoder().encode(JSON.stringify({type:'reaction',id,emoji,seed}));
+   try{ await r.localParticipant.publishData(payload,{reliable:true,topic:'reaction'}); }
+   catch(firstError){
+     try{ await r.localParticipant.publishData(payload,{reliable:true}); }
+     catch(secondError){console.warn('Reaction broadcast failed:',firstError,secondError);setToast?.('Reaction is visible here, but could not be sent to others.');}
+   }
  };
  const REACTIONS=['😀','😂','😍','😎','👏','👍','❤️','🔥','🎉','😮'];
  const sendChat=async(e)=>{
@@ -622,40 +631,29 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const mainScreen=isUsableScreenTrack(screenTrack)?screenTrack:screenFromRemote;
  const remoteScreenActive=Boolean(screenFromRemote);
  const showingScreen=Boolean(mainScreen);
- const toggleScreenFullscreen=async()=>{
-   const el=mainTileRef.current;
-   if(!el)return;
-   try{
-     if(document.fullscreenElement || document.webkitFullscreenElement){
-       if(document.exitFullscreen) await document.exitFullscreen();
-       else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
-     }else if(el.requestFullscreen){
-       await el.requestFullscreen();
-     }else if(el.webkitRequestFullscreen){
-       el.webkitRequestFullscreen();
-     }
-   }catch(err){console.error('Fullscreen failed:',err);setToast?.('Fullscreen is not available in this browser.');}
+ const toggleScreenFullscreen=()=>{
+   // App fullscreen avoids the browser/Android instructional banner.
+   setScreenFullscreen(v=>!v);
  };
  useEffect(()=>{
-   const update=()=>setScreenFullscreen(Boolean(document.fullscreenElement||document.webkitFullscreenElement));
-   document.addEventListener('fullscreenchange',update);
-   document.addEventListener('webkitfullscreenchange',update);
-   return()=>{document.removeEventListener('fullscreenchange',update);document.removeEventListener('webkitfullscreenchange',update)};
+   const onKey=(event)=>{if(event.key==='Escape') setScreenFullscreen(false);};
+   window.addEventListener('keydown',onKey);
+   return()=>window.removeEventListener('keydown',onKey);
  },[]);
  return <section className="meeting">
    <div className="meeting-head"><div><b>{room.title}</b><span className="muted"> • {room.participants}/50</span></div><span className={connection==='connected'?'live':'connection-pill'}>{connection==='connected'?'● LIVE':connection==='connecting'?'Connecting…':connection.startsWith('error:')?'Connection error':'Reconnecting…'}</span></div>
    {connection.startsWith('error:')&&<div className="meeting-error">{connection.slice(6)}<button className="ghost small" onClick={()=>window.location.reload()}>Reload</button></div>}
    <div className={`stage ${pinned&&mainScreen?'pinned':''} ${showingScreen?'screen-active':''}`}>
-     <div ref={mainTileRef} className="main-tile" style={showingScreen?{'--screen-aspect':screenAspect}:undefined}>
+     <div ref={mainTileRef} className={`main-tile ${screenFullscreen?'app-fullscreen':''}`} style={showingScreen?{'--screen-aspect':screenAspect}:undefined}>
        {showingScreen ? <LiveVideo key={`screen-${screenEpoch}-${mainScreen?.sid||mainScreen?.mediaStreamTrack?.id||'active'}`} track={mainScreen} className="screen-video" onAspectRatio={setScreenAspect} /> :
          <div key={`placeholder-${screenEpoch}`} className="screen-share-placeholder" role="status" aria-live="polite">
            <span>Screen Share</span>
          </div>
        }
-       <div className="reaction-layer" aria-live="polite">{reactions.map((r,i)=><div className="floating-reaction" style={{left:`${12+(i*17)%76}%`,animationDelay:`${(i%3)*70}ms`}} key={r.id} title={r.name}>{r.emoji}</div>)}</div>
+       <div className="reaction-layer" aria-live="polite">{reactions.map((r,i)=><div className="floating-reaction" style={{left:`${8+((i*19+Math.floor((r.seed||0)*31))%82)}%`,animationDelay:`${(i%3)*65}ms`}} key={r.id} title={`${r.name}: ${r.emoji}`}><span className="reaction-glow"/><span className="reaction-ring"/><span className="reaction-particle p1"/><span className="reaction-particle p2"/><span className="reaction-particle p3"/><span className="reaction-emoji">{r.emoji}</span></div>)}</div>
        {showingScreen&&<button type="button" className="screen-fit-button" aria-label={screenFullscreen?'Exit full screen':'Full screen shared screen'} title={screenFullscreen?'Exit full screen':'Full screen'} onClick={toggleScreenFullscreen}><MeetingIcon type={screenFullscreen?'fullscreenExit':'fullscreen'}/></button>}
      </div>
-     <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=><ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar}/>)}</div>
+     <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=><ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined}/>)}</div>
    </div>
    <div className="remote-audio" aria-hidden="true">{participants.map(p=><RemoteAudio key={p.identity} participant={p}/>)}</div>
    {micError&&<div className="meeting-status-error">Microphone: {micError} <button className="ghost small" onClick={toggleMic}>Try microphone again</button></div>}
@@ -668,7 +666,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
          <button aria-label={sharing?'Stop sharing screen':'Share screen'} title={sharing?'Stop sharing screen':'Share screen'} className={sharing?'control active':'control'} onClick={toggleScreen}><span className="meeting-symbol"><MeetingIcon type={sharing?'stopScreen':'screen'}/></span><span>{sharing?'Stop share':'Share'}</span></button>
          <button aria-label={pinned?'Unpin screen':'Pin screen'} title={pinned?'Unpin screen':'Pin screen'} disabled={!showingScreen} className={pinned?'control active':'control'} onClick={()=>setPinned(!pinned)}><span className="meeting-symbol"><MeetingIcon type="pin"/></span><span>{pinned?'Unpin':'Pin'}</span></button>
        </>}
-       <div className="reaction-control-wrap"><button aria-label="Send reaction" title="Reactions" className={reactionPicker?'control active':'control'} onClick={()=>setReactionPicker(v=>!v)}><span className="reaction-symbol">😀</span><span>React</span></button>{reactionPicker&&<div className="reaction-picker">{REACTIONS.map(emoji=><button type="button" key={emoji} onClick={()=>sendReaction(emoji)} aria-label={`Send ${emoji}`}>{emoji}</button>)}</div>}</div>
+       <div className="reaction-control-wrap"><button aria-label="Send reaction" title="Reactions" className={reactionPicker?'control active':'control'} onClick={()=>setReactionPicker(v=>!v)}><span className="meeting-symbol"><MeetingIcon type="react"/></span><span>React</span></button>{reactionPicker&&<div className="reaction-picker">{REACTIONS.map(emoji=><button type="button" key={emoji} onClick={()=>sendReaction(emoji)} aria-label={`Send ${emoji}`}>{emoji}</button>)}</div>}</div>
        <button aria-label="Open chat" title="Chat" className="control" onClick={()=>document.getElementById('chat-panel')?.classList.toggle('open')}><span className="meeting-symbol"><MeetingIcon type="chat"/></span><span>Chat</span></button>
        <button aria-label="Open participants" title="Participants" className="control" onClick={()=>document.getElementById('participants-panel')?.classList.toggle('open')}><span className="meeting-symbol"><MeetingIcon type="people"/></span><span>People</span></button>
        {role==='host'?<button aria-label="End meeting" title="End meeting" className="danger control end-control" onClick={onEnd}><span className="meeting-symbol"><MeetingIcon type="end"/></span><span>End</span></button>:<button aria-label="Leave meeting" title="Leave meeting" className="danger control end-control" onClick={onLeave}><span className="meeting-symbol"><MeetingIcon type="leave"/></span><span>Leave</span></button>}
@@ -706,6 +704,21 @@ function AudioTrack({track}){
  return <div ref={ref} aria-hidden="true"/>;
 }
 function LiveVideo({track,className,label,onAspectRatio}){const ref=useRef(null);useEffect(()=>{if(!track||!ref.current)return;const el=track.attach();el.className=className||'';el.autoplay=true;el.playsInline=true;ref.current.innerHTML='';ref.current.appendChild(el);const updateAspect=()=>{if(el.videoWidth&&el.videoHeight&&onAspectRatio)onAspectRatio(el.videoWidth/el.videoHeight)};el.addEventListener?.('loadedmetadata',updateAspect);updateAspect();return()=>{el.removeEventListener?.('loadedmetadata',updateAspect);try{track.detach(el);el.remove()}catch{}}},[track,className,onAspectRatio]);return <div ref={ref} className="live-video-wrap" aria-label={label}/> }
-function ParticipantTile({item,avatar}){const videoTrack=item.participant?Array.from(item.participant.videoTrackPublications?.values?.()||[]).find(p=>p.source==='camera'&&p.track)?.track||null:null;return <div className="thumb">{videoTrack?<LiveVideo track={videoTrack} className="thumb-video" label={item.name}/>:<img src={avatar}/>}<span>{item.name}{item.role==='host'?' • Host':''}</span></div>}
+function isActiveCameraPublication(publication){
+ if(!publication?.track)return false;
+ if(publication.isMuted===true)return false;
+ const media=publication.track.mediaStreamTrack;
+ if(media?.readyState==='ended')return false;
+ if(media?.muted===true)return false;
+ return true;
+}
+function ParticipantTile({item,avatar,localCameraEnabled}){
+ const publication=item.participant?Array.from(item.participant.videoTrackPublications?.values?.()||[]).find(p=>p.source==='camera'&&isActiveCameraPublication(p))||null:null;
+ // The local publication can remain in LiveKit briefly after disabling the
+ // camera. The React camera state is authoritative for the local participant.
+ const showVideo=item.local ? Boolean(localCameraEnabled)&&Boolean(publication) : Boolean(publication);
+ const videoTrack=showVideo?publication.track:null;
+ return <div className="thumb">{videoTrack?<LiveVideo track={videoTrack} className="thumb-video" label={item.name}/>:<div className="participant-avatar-fallback"><img src={avatar} alt=""/><span>{item.name}{item.role==='host'?' • Host':''}</span></div>}<span className="thumb-name">{item.name}{item.role==='host'?' • Host':''}</span></div>
+}
 
 createRoot(document.getElementById('root')).render(<App/>);

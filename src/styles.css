@@ -305,14 +305,35 @@
 .main-tile:fullscreen .screen-share-placeholder,.main-tile:-webkit-full-screen .screen-share-placeholder{height:100vh;background:#05090d}
 @media (max-width:700px){.screen-share-placeholder{font-size:19px}}
 
-/* v1.6.5 MLBB-style meeting reactions + admin call-history controls */
+/* v1.6.8: animated MLBB-style reactions + app fullscreen */
 .reaction-control-wrap{position:relative;display:inline-flex}
-.reaction-symbol{font-size:22px;line-height:1}
-.reaction-picker{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);display:grid;grid-template-columns:repeat(5,42px);gap:6px;padding:9px;border-radius:14px;background:#14212a;border:1px solid rgba(255,255,255,.14);box-shadow:0 12px 32px rgba(0,0,0,.35);z-index:40}
-.reaction-picker button{width:42px;height:42px;border:0;border-radius:10px;background:transparent;font-size:25px;cursor:pointer;transition:transform .15s,background .15s}
-.reaction-picker button:hover{transform:scale(1.2);background:rgba(255,255,255,.1)}
-.reaction-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:15}
-.floating-reaction{position:absolute;bottom:10%;font-size:clamp(40px,6vw,78px);filter:drop-shadow(0 7px 10px rgba(0,0,0,.35));animation:reaction-float 2.7s cubic-bezier(.18,.7,.25,1) forwards;will-change:transform,opacity}
-@keyframes reaction-float{0%{transform:translateY(20px) scale(.55) rotate(-8deg);opacity:0}12%{opacity:1;transform:translateY(0) scale(1.15) rotate(5deg)}25%{transform:translateY(-7vh) scale(1) rotate(-3deg)}100%{transform:translateY(-80vh) scale(1.25) rotate(8deg);opacity:0}}
+.reaction-picker{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);display:grid;grid-template-columns:repeat(5,42px);gap:6px;padding:9px;border-radius:16px;background:#14212a;border:1px solid rgba(255,255,255,.14);box-shadow:0 18px 40px rgba(0,0,0,.42);z-index:60}
+.reaction-picker button{width:42px;height:42px;border:0;border-radius:12px;background:rgba(255,255,255,.03);font-size:25px;cursor:pointer;transition:transform .16s,background .16s,filter .16s}
+.reaction-picker button:hover,.reaction-picker button:active{transform:scale(1.2) rotate(-5deg);background:rgba(255,255,255,.12);filter:drop-shadow(0 0 10px rgba(255,220,100,.45))}
+.reaction-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:30}
+.floating-reaction{position:absolute;bottom:9%;width:clamp(52px,7vw,88px);height:clamp(52px,7vw,88px);display:grid;place-items:center;animation:reaction-float 3.6s cubic-bezier(.18,.7,.25,1) forwards;will-change:transform,opacity}
+.reaction-emoji{position:relative;z-index:3;font-size:clamp(42px,6vw,76px);filter:drop-shadow(0 8px 13px rgba(0,0,0,.42));animation:reaction-pop .55s cubic-bezier(.2,1.6,.35,1) both, reaction-wiggle 1.05s ease-in-out .55s 2}
+.reaction-glow{position:absolute;inset:10%;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.48),rgba(255,210,90,.2) 38%,transparent 70%);filter:blur(4px);animation:reaction-glow 1.2s ease-out both}
+.reaction-ring{position:absolute;inset:18%;border:2px solid rgba(255,255,255,.75);border-radius:50%;animation:reaction-ring .9s ease-out both}
+.reaction-particle{position:absolute;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 12px currentColor;opacity:0;animation:reaction-particle .95s ease-out .08s both}
+.p1{transform:translate(-22px,8px)}.p2{transform:translate(24px,-6px);animation-delay:.16s}.p3{transform:translate(2px,-28px);animation-delay:.24s}
+@keyframes reaction-pop{0%{transform:scale(.2) rotate(-18deg)}65%{transform:scale(1.28) rotate(8deg)}100%{transform:scale(1) rotate(0)}}
+@keyframes reaction-wiggle{0%,100%{transform:rotate(0)}35%{transform:rotate(-10deg) scale(1.08)}70%{transform:rotate(10deg) scale(1.04)}}
+@keyframes reaction-glow{0%{transform:scale(.2);opacity:0}45%{opacity:1}100%{transform:scale(2.2);opacity:0}}
+@keyframes reaction-ring{0%{transform:scale(.25);opacity:.9}100%{transform:scale(2.4);opacity:0}}
+@keyframes reaction-particle{0%{opacity:0;transform:translate(0,0) scale(.3)}25%{opacity:1}100%{opacity:0;transform:translate(var(--x,0),-42px) scale(1.6)}}
+@keyframes reaction-float{0%{transform:translateY(28px);opacity:0}10%{opacity:1}72%{opacity:1}100%{transform:translateY(-78vh) rotate(9deg);opacity:0}}
+.main-tile.app-fullscreen{position:fixed!important;inset:0!important;z-index:1000!important;width:100vw!important;height:100dvh!important;min-height:100dvh!important;max-height:none!important;border-radius:0!important;background:#000!important}
+.main-tile.app-fullscreen .screen-video-wrap,.main-tile.app-fullscreen video{width:100%!important;height:100%!important;object-fit:contain!important}
+.main-tile.app-fullscreen .screen-fit-button{position:absolute;top:16px;right:16px;z-index:1002}
 .history-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;padding:10px 0}
-@media(max-width:700px){.reaction-picker{grid-template-columns:repeat(5,38px);gap:4px;padding:7px}.reaction-picker button{width:38px;height:38px;font-size:22px}.history-actions{align-items:flex-start;flex-direction:column}.floating-reaction{font-size:48px}}
+@media(max-width:700px){.reaction-picker{grid-template-columns:repeat(5,38px);gap:4px;padding:7px}.reaction-picker button{width:38px;height:38px;font-size:22px}.history-actions{align-items:flex-start;flex-direction:column}.floating-reaction{width:58px;height:58px}.reaction-emoji{font-size:48px}}
+
+/* Camera-off fallback: always restore avatar + name instead of leaving a stale black video surface. */
+.thumb{position:relative;overflow:hidden;min-height:130px}
+.participant-avatar-fallback{width:100%;height:100%;min-height:110px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:10px}
+.participant-avatar-fallback img{width:58px;height:58px;border-radius:50%;object-fit:cover;display:block}
+.participant-avatar-fallback span{font-size:12px;font-weight:700;color:#eef5f7;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thumb-name{display:none}
+.thumb:has(.thumb-video) .thumb-name{display:block;position:absolute;left:8px;right:8px;bottom:7px;z-index:2;padding:3px 6px;border-radius:6px;background:rgba(0,0,0,.48);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thumb:has(.thumb-video)>span:not(.thumb-name){display:none}

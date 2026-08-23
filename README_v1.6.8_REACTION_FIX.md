@@ -1,0 +1,1 @@
+v1.6.8 fixes user/host/admin reaction delivery, adds topic compatibility fallback, richer effects, and replaces browser native fullscreen with app fullscreen to avoid the Android instructional banner.
