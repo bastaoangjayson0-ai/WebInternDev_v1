@@ -6,7 +6,7 @@ import avatar from './assets/avatar.jpg';
 import {dbList,dbInsert,dbUpdate,dbUpsert,dbDelete,supabaseConfig,supabase,checkSupabaseSetup} from './supabase';
 
 const DEFAULTS={admin:{name:'Bastaoang Jayson A',password:'webinternDEV'},hostPassword:'BSIT',userPassword:'CRT-NEUST-GSC'};
-const REMOTE_AUDIO_VOLUME=0.55;
+const REMOTE_AUDIO_VOLUME=0.35;
 const defaultRooms=[];
 const mapRoom=r=>({id:r.id,title:r.title,host:r.host,participants:r.participants,active:r.active,createdAt:r.created_at});
 const mapAttendance=a=>({id:a.id,name:a.name,role:a.role,roomId:a.room_id,roomTitle:a.room_title,host:a.host,joinedAt:a.joined_at,leftAt:a.left_at,duration:a.duration});
@@ -234,7 +234,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const mounted=useRef(true);
  const screenTrackRef=useRef(null);
  const wsUrlHint=import.meta.env.VITE_LIVEKIT_URL || '';
- const MICROPHONE_CAPTURE_OPTIONS={echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1};
+ const MICROPHONE_CAPTURE_OPTIONS={echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1,latency:0.01};
 
  useEffect(()=>{
    mounted.current=true;
@@ -259,7 +259,10 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        liveRoom.on(RoomEvent.ConnectionStateChanged,(state)=>setConnection(String(state).toLowerCase()));
        liveRoom.on(RoomEvent.ParticipantConnected,refresh);
        liveRoom.on(RoomEvent.ParticipantDisconnected,refresh);
-       liveRoom.on(RoomEvent.TrackSubscribed,refresh);
+       liveRoom.on(RoomEvent.TrackSubscribed,(track,publication,participant)=>{
+         if(publication?.source==='screen_share' && mounted.current) refresh();
+         else refresh();
+       });
        liveRoom.on(RoomEvent.TrackUnsubscribed,refresh);
        liveRoom.on(RoomEvent.LocalTrackPublished,refresh);
        liveRoom.on(RoomEvent.LocalTrackUnpublished,refresh);
@@ -400,15 +403,17 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const allParticipants=[{local:true,participant:liveRoomRef.current?.localParticipant||null,name,role},...participants.map(p=>({local:false,participant:p,name:p.name||p.identity,role:p.metadata?(()=>{try{return JSON.parse(p.metadata).role}catch{return 'user'}})():'user'}))];
  const screenFromRemote=participants.map(p=>trackForParticipant(p,'screen_share')).find(Boolean);
  const mainScreen=screenTrack||screenFromRemote;
+ const remoteScreenActive=Boolean(screenFromRemote);
+ const showingScreen=Boolean(mainScreen);
  return <section className="meeting">
    <div className="meeting-head"><div><b>{room.title}</b><span className="muted"> • {room.participants}/50</span></div><span className={connection==='connected'?'live':'connection-pill'}>{connection==='connected'?'● LIVE':connection==='connecting'?'Connecting…':connection.startsWith('error:')?'Connection error':'Reconnecting…'}</span></div>
    {connection.startsWith('error:')&&<div className="meeting-error">{connection.slice(6)}<button className="ghost small" onClick={()=>window.location.reload()}>Reload</button></div>}
    <div className={`stage ${pinned&&mainScreen?'pinned':''}`}>
      <div className="main-tile">
-       {pinned&&mainScreen?<LiveVideo track={mainScreen} className="screen-video" label="Screen share"/>:<div className="main-content">
+       {showingScreen?<LiveVideo track={mainScreen} className="screen-video" label={screenTrack?`${name} is sharing screen`:'Host is sharing screen'}/>:<div className="main-content">
          {sharing&&screenTrack?<LiveVideo track={screenTrack} className="screen-video" label={`${name} is sharing screen`}/>:camera&&localTracks.find(t=>t.kind==='video')?<LiveVideo track={localTracks.find(t=>t.kind==='video')} className="local-video" label={name}/>:<div className="avatar-view"><img src={avatar}/><span>{name}</span></div>}
        </div>}
-       {sharing&&<span className="share-label">🖥️ {name} is sharing screen</span>}
+       {(sharing||remoteScreenActive)&&<span className="share-label">🖥️ {screenTrack?`${name} is sharing screen`:'Host is sharing screen'}</span>}
      </div>
      <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=><ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar}/>)}</div>
    </div>
@@ -421,7 +426,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        <button aria-label={camera?'Turn camera off':'Turn camera on'} title={camera?'Turn camera off':'Turn camera on'} className={camera?'control active':'control'} onClick={toggleCamera}><span className="meeting-symbol">{camera?'📹':'📷'}</span><span>Camera</span></button>
        {role==='host'&&<>
          <button aria-label={sharing?'Stop sharing screen':'Share screen'} title={sharing?'Stop sharing screen':'Share screen'} className={sharing?'control active':'control'} onClick={toggleScreen}><span className="meeting-symbol">🖥️</span><span>{sharing?'Stop share':'Share'}</span></button>
-         <button aria-label={pinned?'Unpin screen':'Pin screen'} title={pinned?'Unpin screen':'Pin screen'} disabled={!sharing} className={pinned?'control active':'control'} onClick={()=>setPinned(!pinned)}><span className="meeting-symbol">📌</span><span>{pinned?'Unpin':'Pin'}</span></button>
+         <button aria-label={pinned?'Unpin screen':'Pin screen'} title={pinned?'Unpin screen':'Pin screen'} disabled={!showingScreen} className={pinned?'control active':'control'} onClick={()=>setPinned(!pinned)}><span className="meeting-symbol">📌</span><span>{pinned?'Unpin':'Pin'}</span></button>
        </>}
        <button aria-label="Open chat" title="Chat" className="control" onClick={()=>document.getElementById('chat-panel')?.classList.toggle('open')}><span className="meeting-symbol">💬</span><span>Chat</span></button>
        <button aria-label="Open participants" title="Participants" className="control" onClick={()=>document.getElementById('participants-panel')?.classList.toggle('open')}><span className="meeting-symbol">👥</span><span>People</span></button>
@@ -446,6 +451,9 @@ function AudioTrack({track}){
    el.autoplay=true;
    el.playsInline=true;
    el.volume=REMOTE_AUDIO_VOLUME;
+   el.muted=false;
+   el.setAttribute('playsinline','');
+   el.setAttribute('aria-label','Remote participant audio');
    el.style.display='none';
    ref.current.innerHTML='';
    ref.current.appendChild(el);
