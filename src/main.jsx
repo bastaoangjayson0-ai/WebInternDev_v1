@@ -219,6 +219,24 @@ function AdminPanel({view,close,credentials,setCredentials,attendance,users,setU
 function formatDate(v){return new Date(v).toLocaleString([], {dateStyle:'short',timeStyle:'short'})}
 function Stat({n,t}){return <div className="stat"><strong>{n}</strong><span>{t}</span></div>}
 function RoomCard({room,role,onJoin,onEnd}){return <div className="room-card"><div className="room-top"><span className="live">● LIVE</span><span>{room.participants}/50</span></div><h3>{room.title}</h3><p className="muted">Host: {room.host}</p><div className="room-actions">{role==='admin'?<><button className="primary" onClick={onJoin}>Join Room</button><button className="danger" onClick={onEnd}>End Meeting</button></>:<button className="primary" onClick={onJoin}>{role==='host'?'Open Meeting':'Join Meeting'}</button>}</div></div>}
+function MeetingIcon({type}){
+ const paths={
+  mic:<><rect x="8" y="3.5" width="8" height="12" rx="4"/><path d="M5 11.5a7 7 0 0 0 14 0M12 18.5V22M8.5 22h7"/></>,
+  mute:<><rect x="8" y="3.5" width="8" height="12" rx="4"/><path d="M5 11.5a7 7 0 0 0 14 0M12 18.5V22M8.5 22h7M4 4l16 16"/></>,
+  camera:<><rect x="3" y="6.5" width="13" height="11" rx="2"/><path d="m16 10 5-3v10l-5-3z"/></>,
+  cameraOff:<><rect x="3" y="6.5" width="13" height="11" rx="2"/><path d="m16 10 5-3v10l-5-3zM4 4l16 16"/></>,
+  screen:<><rect x="3" y="4.5" width="18" height="12" rx="1.8"/><path d="M12 16.5V20M8.5 20h7"/></>,
+  stopScreen:<><rect x="3" y="4.5" width="18" height="12" rx="1.8"/><path d="M8 9h8v5H8zM12 16.5V20M8.5 20h7"/></>,
+  pin:<><path d="m15 3 6 6-3 1-3 5 1.5 1.5-2 2-1.5-1.5-5 3-1-3 5-5-1-3z"/><path d="m4 20 5-5"/></>,
+  chat:<><path d="M4 5.5h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-5 3v-3.1a2 2 0 0 1-3-1.9v-8a2 2 0 0 1 2-2z"/><path d="M7 11.5h.01M12 11.5h.01M17 11.5h.01"/></>,
+  people:<><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3 2.5-4.7 5.5-4.7s4.9 1.7 5.5 4.7"/><path d="M16 6.5a3 3 0 0 1 0 5.8M17 14.5c2.1.6 3.4 2 3.8 4.5"/></>,
+  end:<><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></>,
+  leave:<><path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M13 8l4 4-4 4M8 12h9"/></>
+  fitScreen:<><rect x="5" y="5" width="11" height="13" rx="1.5"/><rect x="8" y="2" width="11" height="13" rx="1.5"/></>,
+ };
+ return <svg className="meeting-icon-svg" viewBox="0 0 24 24" aria-hidden="true">{paths[type]||paths.people}</svg>;
+}
+
 function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setMic,setSharing,setPinned,onLeave,onEnd,setToast}){
  const [connection,setConnection]=useState('connecting');
  const [participants,setParticipants]=useState([]);
@@ -226,7 +244,6 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const [screenTrack,setScreenTrack]=useState(null);
  const [remoteScreenTrack,setRemoteScreenTrack]=useState(null);
  const [screenAspect,setScreenAspect]=useState(16/9);
- const [screenZoom,setScreenZoom]=useState(1);
  const [chat,setChat]=useState([]);
  const [message,setMessage]=useState('');
  const [micError,setMicError]=useState('');
@@ -493,7 +510,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        } : undefined
      );
      setSharing(next);
-     if(!next){setPinned(false);setScreenZoom(1);screenTrackRef.current=null;setScreenTrack(null);}
+     if(!next){setPinned(false);screenTrackRef.current=null;setScreenTrack(null);}
      else {
        const pub=publication || Array.from(r.localParticipant.videoTrackPublications.values()).find(p=>p.source==='screen_share' && p.track);
        if(pub?.track){screenTrackRef.current=pub.track;setScreenTrack(pub.track);}
@@ -546,11 +563,11 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    {connection.startsWith('error:')&&<div className="meeting-error">{connection.slice(6)}<button className="ghost small" onClick={()=>window.location.reload()}>Reload</button></div>}
    <div className={`stage ${pinned&&mainScreen?'pinned':''} ${showingScreen?'screen-active':''}`}>
      <div className="main-tile" style={showingScreen?{'--screen-aspect':screenAspect}:undefined}>
-       {showingScreen?<LiveVideo track={mainScreen} className="screen-video" label={screenTrack?`${name} is sharing screen`:'Host is sharing screen'} onAspectRatio={setScreenAspect} zoom={screenZoom}/>:<div className="main-content">
-         {sharing&&screenTrack?<LiveVideo track={screenTrack} className="screen-video" label={`${name} is sharing screen`} onAspectRatio={setScreenAspect} zoom={screenZoom}/>:camera&&localTracks.find(t=>t.kind==='video')?<LiveVideo track={localTracks.find(t=>t.kind==='video')} className="local-video" label={name}/>:<div className="avatar-view"><img src={avatar}/><span>{name}</span></div>}
+       {showingScreen?<LiveVideo track={mainScreen} className="screen-video" label={screenTrack?`${name} is sharing screen`:'Host is sharing screen'} onAspectRatio={setScreenAspect} />:<div className="main-content">
+         {sharing&&screenTrack?<LiveVideo track={screenTrack} className="screen-video" label={`${name} is sharing screen`} onAspectRatio={setScreenAspect} />:camera&&localTracks.find(t=>t.kind==='video')?<LiveVideo track={localTracks.find(t=>t.kind==='video')} className="local-video" label={name}/>:<div className="avatar-view"><img src={avatar}/><span>{name}</span></div>}
        </div>}
        {(sharing||remoteScreenActive)&&<span className="share-label">🖥️ {screenTrack?`${name} is sharing screen`:'Host is sharing screen'}</span>}
-       {showingScreen&&<div className="screen-zoom-controls" aria-label="Screen zoom controls"><button type="button" onClick={()=>setScreenZoom(z=>Math.max(1,Math.round((z-0.1)*10)/10))} disabled={screenZoom<=1}>−</button><span>{Math.round(screenZoom*100)}%</span><button type="button" onClick={()=>setScreenZoom(z=>Math.min(2.5,Math.round((z+0.1)*10)/10))} disabled={screenZoom>=2.5}>+</button><button type="button" onClick={()=>setScreenZoom(1)} disabled={screenZoom===1}>Fit</button></div>}
+       {showingScreen&&<button type="button" className="screen-fit-button" aria-label="Focus shared screen" title="Focus shared screen" onClick={()=>setPinned(p=>!p)}><MeetingIcon type="fitScreen"/></button>}
      </div>
      <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=><ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar}/>)}</div>
    </div>
@@ -559,15 +576,15 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    <div className="audio-note">Remote participant audio playback is set to 100%. You can also use your phone/computer volume buttons.</div>
    <div className="meeting-bottom">
      <div className="meeting-controls">
-       <button aria-label={mic?'Mute microphone':'Unmute microphone'} title={mic?'Mute microphone':'Unmute microphone'} className={mic?'control active':'control'} onClick={toggleMic}><span className="meeting-symbol">{mic?'🎤':'🔇'}</span><span>{mic?'Mute':'Unmute'}</span></button>
-       <button aria-label={camera?'Turn camera off':'Turn camera on'} title={camera?'Turn camera off':'Turn camera on'} className={camera?'control active':'control'} onClick={toggleCamera}><span className="meeting-symbol">{camera?'📹':'📷'}</span><span>Camera</span></button>
+       <button aria-label={mic?'Mute microphone':'Unmute microphone'} title={mic?'Mute microphone':'Unmute microphone'} className={mic?'control active':'control'} onClick={toggleMic}><span className="meeting-symbol"><MeetingIcon type={mic?'mic':'mute'}/></span><span>{mic?'Mute':'Unmute'}</span></button>
+       <button aria-label={camera?'Turn camera off':'Turn camera on'} title={camera?'Turn camera off':'Turn camera on'} className={camera?'control active':'control'} onClick={toggleCamera}><span className="meeting-symbol"><MeetingIcon type={camera?'camera':'cameraOff'}/></span><span>Camera</span></button>
        {role==='host'&&<>
-         <button aria-label={sharing?'Stop sharing screen':'Share screen'} title={sharing?'Stop sharing screen':'Share screen'} className={sharing?'control active':'control'} onClick={toggleScreen}><span className="meeting-symbol">🖥️</span><span>{sharing?'Stop share':'Share'}</span></button>
-         <button aria-label={pinned?'Unpin screen':'Pin screen'} title={pinned?'Unpin screen':'Pin screen'} disabled={!showingScreen} className={pinned?'control active':'control'} onClick={()=>setPinned(!pinned)}><span className="meeting-symbol">📌</span><span>{pinned?'Unpin':'Pin'}</span></button>
+         <button aria-label={sharing?'Stop sharing screen':'Share screen'} title={sharing?'Stop sharing screen':'Share screen'} className={sharing?'control active':'control'} onClick={toggleScreen}><span className="meeting-symbol"><MeetingIcon type={sharing?'stopScreen':'screen'}/></span><span>{sharing?'Stop share':'Share'}</span></button>
+         <button aria-label={pinned?'Unpin screen':'Pin screen'} title={pinned?'Unpin screen':'Pin screen'} disabled={!showingScreen} className={pinned?'control active':'control'} onClick={()=>setPinned(!pinned)}><span className="meeting-symbol"><MeetingIcon type="pin"/></span><span>{pinned?'Unpin':'Pin'}</span></button>
        </>}
-       <button aria-label="Open chat" title="Chat" className="control" onClick={()=>document.getElementById('chat-panel')?.classList.toggle('open')}><span className="meeting-symbol">💬</span><span>Chat</span></button>
-       <button aria-label="Open participants" title="Participants" className="control" onClick={()=>document.getElementById('participants-panel')?.classList.toggle('open')}><span className="meeting-symbol">👥</span><span>People</span></button>
-       {role==='host'?<button aria-label="End meeting" title="End meeting" className="danger control end-control" onClick={onEnd}><span className="meeting-symbol">⛔</span><span>End</span></button>:<button aria-label="Leave meeting" title="Leave meeting" className="danger control end-control" onClick={onLeave}><span className="meeting-symbol">↩️</span><span>Leave</span></button>}
+       <button aria-label="Open chat" title="Chat" className="control" onClick={()=>document.getElementById('chat-panel')?.classList.toggle('open')}><span className="meeting-symbol"><MeetingIcon type="chat"/></span><span>Chat</span></button>
+       <button aria-label="Open participants" title="Participants" className="control" onClick={()=>document.getElementById('participants-panel')?.classList.toggle('open')}><span className="meeting-symbol"><MeetingIcon type="people"/></span><span>People</span></button>
+       {role==='host'?<button aria-label="End meeting" title="End meeting" className="danger control end-control" onClick={onEnd}><span className="meeting-symbol"><MeetingIcon type="end"/></span><span>End</span></button>:<button aria-label="Leave meeting" title="Leave meeting" className="danger control end-control" onClick={onLeave}><span className="meeting-symbol"><MeetingIcon type="leave"/></span><span>Leave</span></button>}
      </div>
      {role==='host'&&<div className="host-note">Host controls: screen share + pin/unpin. Only the Host can share and pin the screen. Click Share to open the browser's native chooser: select an entire screen, an open window, or a browser tab. You can share a PDF, PowerPoint, Excel sheet, Word file, website, or any other content visible in the selected window/tab. The app uses a minimal capture request to avoid delaying the chooser; the browser/OS controls how quickly its native chooser appears.</div>}
    </div>
@@ -601,7 +618,7 @@ function AudioTrack({track}){
  },[track]);
  return <div ref={ref} aria-hidden="true"/>;
 }
-function LiveVideo({track,className,label,onAspectRatio,zoom=1}){const ref=useRef(null);useEffect(()=>{if(!track||!ref.current)return;const el=track.attach();el.className=className||'';el.autoplay=true;el.style.transform=`scale(${zoom})`;el.style.transformOrigin='center center';el.playsInline=true;ref.current.innerHTML='';ref.current.appendChild(el);const updateAspect=()=>{if(el.videoWidth&&el.videoHeight&&onAspectRatio)onAspectRatio(el.videoWidth/el.videoHeight)};el.addEventListener?.('loadedmetadata',updateAspect);updateAspect();return()=>{el.removeEventListener?.('loadedmetadata',updateAspect);try{track.detach(el);el.remove()}catch{}}},[track,className,onAspectRatio,zoom]);return <div ref={ref} className="live-video-wrap" aria-label={label}/> }
+function LiveVideo({track,className,label,onAspectRatio}){const ref=useRef(null);useEffect(()=>{if(!track||!ref.current)return;const el=track.attach();el.className=className||'';el.autoplay=true;el.playsInline=true;ref.current.innerHTML='';ref.current.appendChild(el);const updateAspect=()=>{if(el.videoWidth&&el.videoHeight&&onAspectRatio)onAspectRatio(el.videoWidth/el.videoHeight)};el.addEventListener?.('loadedmetadata',updateAspect);updateAspect();return()=>{el.removeEventListener?.('loadedmetadata',updateAspect);try{track.detach(el);el.remove()}catch{}}},[track,className,onAspectRatio]);return <div ref={ref} className="live-video-wrap" aria-label={label}/> }
 function ParticipantTile({item,avatar}){const videoTrack=item.participant?Array.from(item.participant.videoTrackPublications?.values?.()||[]).find(p=>p.source==='camera'&&p.track)?.track||null:null;return <div className="thumb">{videoTrack?<LiveVideo track={videoTrack} className="thumb-video" label={item.name}/>:<img src={avatar}/>}<span>{item.name}{item.role==='host'?' • Host':''}</span></div>}
 
 createRoot(document.getElementById('root')).render(<App/>);

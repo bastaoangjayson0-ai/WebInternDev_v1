@@ -71,7 +71,12 @@
 .chat-form input{border:1px solid #d3e2e7;border-radius:12px;padding:12px 13px;outline:none}
 .chat-form input:focus{border-color:#56b9ca;box-shadow:0 0 0 3px rgba(86,185,202,.13)}
 
-.meeting-symbol{font-size:19px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.meeting-symbol{width:32px;height:32px;flex:0 0 32px;display:inline-grid;place-items:center;border-radius:10px;background:#eaf9fc;color:#08758f;line-height:1;transition:background .16s ease,color .16s ease,transform .16s ease}
+.meeting-icon-svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.control.active .meeting-symbol{background:rgba(255,255,255,.18);color:#fff}
+.control:hover:not(:disabled) .meeting-symbol{transform:scale(1.04);background:#dff5f9}
+.control.active:hover:not(:disabled) .meeting-symbol{background:rgba(255,255,255,.24)}
+.end-control .meeting-symbol{background:rgba(255,255,255,.18);color:#fff}
 .control span{line-height:1}
 .meeting-status-error{width:min(1200px,calc(100% - 40px));margin:0 auto 8px;background:#4a1f23;color:#ffd7da;border:1px solid #8c3b43;border-radius:12px;padding:10px 13px;font-size:12px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}.meeting-status-error .ghost{color:#ffd7da;text-decoration:underline}.chat-error{padding:8px 12px;background:#fff1f0;color:#a6322e;font-size:12px;border-top:1px solid #f0d3d1}.chat-form button:disabled{opacity:.45;cursor:not-allowed}
 
@@ -266,14 +271,12 @@
 }
 
 
-/* v1.5.6: fast native screen picker + exact source aspect + participant zoom */
-.screen-zoom-controls{position:absolute;right:12px;bottom:12px;z-index:8;display:flex;align-items:center;gap:6px;padding:6px 8px;background:rgba(7,15,20,.88);border:1px solid rgba(255,255,255,.14);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);backdrop-filter:blur(6px)}
-.screen-zoom-controls button{border:1px solid #49616b;background:#1a2a32;color:#fff;border-radius:7px;min-width:34px;height:30px;padding:0 8px;font-weight:800;cursor:pointer}
-.screen-zoom-controls button:hover:not(:disabled){background:#24505f}
-.screen-zoom-controls button:disabled{opacity:.35;cursor:not-allowed}
-.screen-zoom-controls span{min-width:48px;text-align:center;font-size:12px;font-weight:800;color:#dce8ed}
+/* v1.6.0: no participant zoom; compact shared-screen focus control */
+.screen-fit-button{position:absolute;right:12px;bottom:12px;z-index:8;width:40px;height:40px;display:grid;place-items:center;padding:0;border:1px solid rgba(255,255,255,.18);background:rgba(25,25,25,.92);color:#fff;border-radius:2px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.screen-fit-button:hover{background:rgba(45,45,45,.96)}
+.screen-fit-button .meeting-icon-svg{width:18px;height:18px;stroke-width:1.7}
 .live-video-wrap.screen-video{overflow:visible!important;display:flex!important;align-items:center!important;justify-content:center!important}
-.live-video-wrap.screen-video video{transform-origin:center center!important;will-change:transform;object-fit:contain!important;object-position:center center!important}
+.live-video-wrap.screen-video video{object-fit:contain!important;object-position:center center!important}
 /* Preserve the actual captured source aspect on compact devices. */
 @media (max-width:1100px){
  .stage.screen-active,.stage.pinned.screen-active{display:block!important;width:100%!important;padding:8px!important}
@@ -282,7 +285,5 @@
  .stage.screen-active .main-tile .screen-video-wrap video,.stage.pinned .main-tile .screen-video-wrap video{width:100%!important;height:100%!important;object-fit:contain!important}
 }
 @media (max-width:600px){
- .screen-zoom-controls{right:8px;bottom:8px;gap:4px;padding:5px 6px}
- .screen-zoom-controls button{min-width:31px;height:28px;padding:0 6px}
- .screen-zoom-controls span{min-width:42px;font-size:11px}
+ .screen-fit-button{right:8px;bottom:8px;width:38px;height:38px}
 }
