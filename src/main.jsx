@@ -6,7 +6,7 @@ import avatar from './assets/avatar.jpg';
 import {dbList,dbInsert,dbUpdate,dbUpsert,dbDelete,supabaseConfig,supabase,checkSupabaseSetup} from './supabase';
 
 const DEFAULTS={admin:{name:'Bastaoang Jayson A',password:'webinternDEV'},hostPassword:'BSIT',userPassword:'CRT-NEUST-GSC'};
-const REMOTE_AUDIO_VOLUME=0.35;
+const REMOTE_AUDIO_VOLUME=0.18;
 const defaultRooms=[];
 const mapRoom=r=>({id:r.id,title:r.title,host:r.host,participants:r.participants,active:r.active,createdAt:r.created_at});
 const mapAttendance=a=>({id:a.id,name:a.name,role:a.role,roomId:a.room_id,roomTitle:a.room_title,host:a.host,joinedAt:a.joined_at,leftAt:a.left_at,duration:a.duration});
@@ -224,6 +224,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const [participants,setParticipants]=useState([]);
  const [localTracks,setLocalTracks]=useState([]);
  const [screenTrack,setScreenTrack]=useState(null);
+ const [remoteScreenTrack,setRemoteScreenTrack]=useState(null);
  const [chat,setChat]=useState([]);
  const [message,setMessage]=useState('');
  const [micError,setMicError]=useState('');
@@ -234,7 +235,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const mounted=useRef(true);
  const screenTrackRef=useRef(null);
  const wsUrlHint=import.meta.env.VITE_LIVEKIT_URL || '';
- const MICROPHONE_CAPTURE_OPTIONS={echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1,latency:0.01};
+ const MICROPHONE_CAPTURE_OPTIONS={echoCancellation:true,noiseSuppression:true,autoGainControl:false,channelCount:1,latency:0.02};
 
  useEffect(()=>{
    mounted.current=true;
@@ -250,38 +251,68 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        const refresh=()=>{
          if(!mounted.current)return;
          const list=[];
+         let activeRemoteScreen=null;
          liveRoom.remoteParticipants.forEach(p=>{
            try{p.setVolume?.(REMOTE_AUDIO_VOLUME)}catch{}
+           const screenPub=Array.from(p.videoTrackPublications?.values?.()||[]).find(pub=>
+             (pub.source==='screen_share' || pub.source==='screenShare') && pub.track
+           );
+           if(screenPub?.track) activeRemoteScreen=screenPub.track;
            list.push(p);
          });
          setParticipants(list);
+         setRemoteScreenTrack(activeRemoteScreen);
+       };
+       const setRemoteScreen=(track,publication,participant)=>{
+         if(!mounted.current)return;
+         const isScreen=publication?.source==='screen_share' || publication?.source==='screenShare';
+         if(isScreen) {
+           setRemoteScreenTrack(track || null);
+           try{participant?.setVolume?.(REMOTE_AUDIO_VOLUME)}catch{}
+         }
        };
        liveRoom.on(RoomEvent.ConnectionStateChanged,(state)=>setConnection(String(state).toLowerCase()));
        liveRoom.on(RoomEvent.ParticipantConnected,refresh);
        liveRoom.on(RoomEvent.ParticipantDisconnected,refresh);
        liveRoom.on(RoomEvent.TrackSubscribed,(track,publication,participant)=>{
-         if(publication?.source==='screen_share' && mounted.current) refresh();
-         else refresh();
+         setRemoteScreen(track,publication,participant);
+         refresh();
+       });
+       liveRoom.on(RoomEvent.TrackPublished,(publication,participant)=>{
+         if(publication?.source==='screen_share') refresh();
+       });
+       liveRoom.on(RoomEvent.TrackUnpublished,(publication)=>{
+         if(publication?.source==='screen_share') setRemoteScreenTrack(null);
+         refresh();
        });
        liveRoom.on(RoomEvent.TrackUnsubscribed,refresh);
        liveRoom.on(RoomEvent.LocalTrackPublished,refresh);
        liveRoom.on(RoomEvent.LocalTrackUnpublished,refresh);
+       const appendRemoteChat=(text,participant)=>{
+         if(typeof text!=='string' || !text.trim()) return;
+         setChat(c=>c.concat({id:crypto.randomUUID(),name:participant?.name||participant?.identity||'Participant',text:text.trim(),local:false}));
+       };
        liveRoom.on(RoomEvent.DataReceived,(payload,participant,kind,topic)=>{
          try{
            const text = typeof payload === 'string' ? payload : new TextDecoder().decode(payload);
-           const msg=JSON.parse(text);
-           if((!topic || topic==='chat') && msg.type==='chat' && typeof msg.text==='string') {
-             setChat(c=>c.concat({id:crypto.randomUUID(),name:participant?.name||'Participant',text:msg.text,local:false}));
-           }
+           let msg;
+           try{ msg=JSON.parse(text); }catch{ msg=null; }
+           if((!topic || topic==='chat') && msg?.type==='chat' && typeof msg.text==='string') appendRemoteChat(msg.text,participant);
          }catch(err){ console.warn('Chat receive failed:',err); }
        });
-       liveRoom.on(RoomEvent.LocalTrackPublished,()=>{ if(mounted.current) setChatReady(Boolean(liveRoom.localParticipant.permissions?.canPublishData ?? true)); refresh(); });
+       liveRoom.on(RoomEvent.ChatMessage,(chatMessage,participant)=>{
+         try{
+           const text=typeof chatMessage==='string' ? chatMessage : (chatMessage?.message || chatMessage?.text || chatMessage?.content);
+           if(typeof text==='string') appendRemoteChat(text,participant);
+         }catch(err){ console.warn('LiveKit chat event failed:',err); }
+       });
+       liveRoom.on(RoomEvent.LocalTrackPublished,()=>{ if(mounted.current) setChatReady(true); refresh(); });
        liveRoom.on(RoomEvent.LocalTrackUnpublished,refresh);
        liveRoom.on(RoomEvent.LocalTrackMuted,()=>{ if(mounted.current) setMic(false); refresh(); });
        liveRoom.on(RoomEvent.LocalTrackUnmuted,()=>{ if(mounted.current) setMic(true); refresh(); });
        await liveRoom.connect(data.url, data.token);
        setConnection('connected');
-       setChatReady(Boolean(liveRoom.localParticipant.permissions?.canPublishData ?? true));
+       setChatReady(true);
        setChatError('');
 
        // Request microphone and camera independently. We explicitly verify that
@@ -368,12 +399,13 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    if(!r||role!=='host')return;
    const next=!sharing;
    try{
-     await r.localParticipant.setScreenShareEnabled(next);
+     const publication=await r.localParticipant.setScreenShareEnabled(next);
      setSharing(next);
      if(!next){setPinned(false);screenTrackRef.current=null;setScreenTrack(null);}
      else {
-       const pub=Array.from(r.localParticipant.videoTrackPublications.values()).find(p=>p.source==='screen_share');
+       const pub=publication || Array.from(r.localParticipant.videoTrackPublications.values()).find(p=>p.source==='screen_share' && p.track);
        if(pub?.track){screenTrackRef.current=pub.track;setScreenTrack(pub.track);}
+       else throw new Error('The browser did not publish a screen-share track.');
      }
    }catch(e){setSharing(false);setPinned(false);setToast?.('Screen sharing could not start. Check browser permission and try again.');}
  };
@@ -384,6 +416,9 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    if(!text)return;
    if(!r || r.state!=='connected'){setChatError('Chat is waiting for the meeting connection.');setToast?.('Chat is not connected yet.');return;}
    try {
+     if(!r.localParticipant.permissions?.canPublishData && r.localParticipant.permissions?.canPublishData !== undefined){
+       throw new Error('LiveKit token does not allow chat/data publishing.');
+     }
      const data=new TextEncoder().encode(JSON.stringify({type:'chat',text,ts:Date.now()}));
      await r.localParticipant.publishData(data,{reliable:true,topic:'chat'});
      setChat(c=>c.concat({id:crypto.randomUUID(),name,text,local:true}));
@@ -401,14 +436,14 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    return pubs.find(p=>p.source===source && p.track)?.track||null;
  };
  const allParticipants=[{local:true,participant:liveRoomRef.current?.localParticipant||null,name,role},...participants.map(p=>({local:false,participant:p,name:p.name||p.identity,role:p.metadata?(()=>{try{return JSON.parse(p.metadata).role}catch{return 'user'}})():'user'}))];
- const screenFromRemote=participants.map(p=>trackForParticipant(p,'screen_share')).find(Boolean);
+ const screenFromRemote=remoteScreenTrack || participants.map(p=>trackForParticipant(p,'screen_share')).find(Boolean);
  const mainScreen=screenTrack||screenFromRemote;
  const remoteScreenActive=Boolean(screenFromRemote);
  const showingScreen=Boolean(mainScreen);
  return <section className="meeting">
    <div className="meeting-head"><div><b>{room.title}</b><span className="muted"> • {room.participants}/50</span></div><span className={connection==='connected'?'live':'connection-pill'}>{connection==='connected'?'● LIVE':connection==='connecting'?'Connecting…':connection.startsWith('error:')?'Connection error':'Reconnecting…'}</span></div>
    {connection.startsWith('error:')&&<div className="meeting-error">{connection.slice(6)}<button className="ghost small" onClick={()=>window.location.reload()}>Reload</button></div>}
-   <div className={`stage ${pinned&&mainScreen?'pinned':''}`}>
+   <div className={`stage ${pinned&&mainScreen?'pinned':''} ${showingScreen?'screen-active':''}`}>
      <div className="main-tile">
        {showingScreen?<LiveVideo track={mainScreen} className="screen-video" label={screenTrack?`${name} is sharing screen`:'Host is sharing screen'}/>:<div className="main-content">
          {sharing&&screenTrack?<LiveVideo track={screenTrack} className="screen-video" label={`${name} is sharing screen`}/>:camera&&localTracks.find(t=>t.kind==='video')?<LiveVideo track={localTracks.find(t=>t.kind==='video')} className="local-video" label={name}/>:<div className="avatar-view"><img src={avatar}/><span>{name}</span></div>}
