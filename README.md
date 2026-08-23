@@ -58,3 +58,16 @@ Do not put production passwords or LiveKit server secrets in browser code. Use s
 4. Redeploy.
 
 The publishable key is intended for frontend use. Never put a Supabase secret/service-role key in this project. The included RLS policies are prototype policies for initial testing and must be tightened before public production.
+
+
+## LiveKit setup
+
+This version adds a secure Vercel serverless token endpoint at `/api/livekit-token`. Configure these Vercel environment variables (server-side):
+
+- `LIVEKIT_URL`
+- `LIVEKIT_API_KEY`
+- `LIVEKIT_API_SECRET` (keep private; never expose as a `VITE_` variable)
+
+The browser requests a short-lived LiveKit token from the endpoint. The LiveKit secret is never sent to the browser.
+
+The meeting UI uses LiveKit for real camera, microphone, host-only screen sharing, realtime participants and realtime chat.
