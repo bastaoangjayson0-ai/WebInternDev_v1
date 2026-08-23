@@ -6,6 +6,7 @@ import avatar from './assets/avatar.jpg';
 import {dbList,dbInsert,dbUpdate,dbUpsert,dbDelete,supabaseConfig,supabase,checkSupabaseSetup} from './supabase';
 
 const DEFAULTS={admin:{name:'Bastaoang Jayson A',password:'webinternDEV'},hostPassword:'BSIT',userPassword:'CRT-NEUST-GSC'};
+const REMOTE_AUDIO_VOLUME=0.55;
 const defaultRooms=[];
 const mapRoom=r=>({id:r.id,title:r.title,host:r.host,participants:r.participants,active:r.active,createdAt:r.created_at});
 const mapAttendance=a=>({id:a.id,name:a.name,role:a.role,roomId:a.room_id,roomTitle:a.room_title,host:a.host,joinedAt:a.joined_at,leftAt:a.left_at,duration:a.duration});
@@ -233,7 +234,6 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const mounted=useRef(true);
  const screenTrackRef=useRef(null);
  const wsUrlHint=import.meta.env.VITE_LIVEKIT_URL || '';
- const REMOTE_AUDIO_VOLUME=0.55;
  const MICROPHONE_CAPTURE_OPTIONS={echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1};
 
  useEffect(()=>{
