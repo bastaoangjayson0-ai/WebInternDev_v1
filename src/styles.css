@@ -54,3 +54,22 @@
 .setup-row{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid #edf2f4}.setup-row:first-of-type{border-top:0}.setup-row>div{min-width:0}.setup-row strong{display:block;font-size:13px;color:#163f52;word-break:break-word}.setup-row small{display:block;margin-top:3px;color:#71838c;line-height:1.4;word-break:break-word}.setup-dot{font-size:12px;line-height:18px}.setup-dot.ok{color:#0a9a72}.setup-dot.fail{color:#c43d35}
 .setup-next{margin-top:14px;padding:12px 14px;border-radius:12px;background:#fff3f2;color:#7f302b;font-size:13px;line-height:1.5}.setup-next code{background:#f5e4e2;padding:2px 5px;border-radius:5px}.setup-next-good{background:#eafaf5;color:#087d5e}
 @media(max-width:700px){.setup-checker-head{flex-direction:column}.setup-grid{grid-template-columns:1fr}.setup-checker{padding:15px}.setup-checker-head .ghost{width:100%}}
+
+/* Professional meeting controls */
+.meeting{background:linear-gradient(180deg,#f8fbfd 0%,#eef5f8 100%);min-height:calc(100vh - 120px);padding-bottom:24px}
+.meeting-head{background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border:1px solid #dce8ed;border-radius:18px;padding:15px 18px;box-shadow:0 8px 28px rgba(15,65,82,.08)}
+.meeting-controls{align-items:center;gap:10px;padding:16px 12px 8px}
+.control{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:76px;height:52px;padding:0 15px;border-radius:16px;border:1px solid #d7e3e8;background:rgba(255,255,255,.96);color:#173f51;box-shadow:0 7px 18px rgba(17,63,81,.08);font-size:12px;font-weight:800;transition:transform .16s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease}
+.control:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 11px 24px rgba(17,63,81,.14);border-color:#8acbd8}
+.control.active{background:linear-gradient(135deg,#0b7893,#11a8bd);border-color:#0b7893;color:#fff;box-shadow:0 10px 24px rgba(11,120,147,.24)}
+.control:disabled{opacity:.38;box-shadow:none}
+.end-control{min-width:84px!important;color:#fff!important;border-color:#c93f47!important;background:linear-gradient(135deg,#c93f47,#ef5b62)!important;box-shadow:0 10px 24px rgba(201,63,71,.2)!important}
+.end-control:hover:not(:disabled){border-color:#b92f38!important}
+.remote-audio{position:absolute;width:1px;height:1px;overflow:hidden;pointer-events:none}
+.meeting-side-panel{backdrop-filter:blur(16px);background:rgba(255,255,255,.98)}
+.side-head b{font-size:15px;color:#173f51}
+.chat-form input{border:1px solid #d3e2e7;border-radius:12px;padding:12px 13px;outline:none}
+.chat-form input:focus{border-color:#56b9ca;box-shadow:0 0 0 3px rgba(86,185,202,.13)}
+
+.meeting-symbol{font-size:19px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.control span{line-height:1}

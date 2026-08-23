@@ -150,7 +150,7 @@ function App(){
    {page==='entry'&&<Entry onSelect={enterRole}/>}
    {page==='login'&&<Login role={role} name={name} setName={setName} password={password} setPassword={setPassword} onSubmit={login} onBack={()=>setPage('entry')}/>} 
    {page==='dashboard'&&<Dashboard role={role} name={name} rooms={activeRooms} setRooms={setRooms} syncStatus={syncStatus} onCreate={createRoom} onJoin={joinRoom} onEnd={adminEnd} onOpenAdmin={setAdminView} adminView={adminView} credentials={credentials} setCredentials={setCredentials} attendance={attendance} users={knownUsers} setUsers={setKnownUsers} toast={setToast}/>} 
-   {page==='meeting'&&<Meeting role={role} name={name} room={currentRoom} avatar={avatar} camera={camera} mic={mic} sharing={sharing} pinned={pinned} setCamera={setCamera} setMic={setMic} setSharing={setSharing} setPinned={setPinned} onLeave={leaveMeeting} onEnd={endRoom}/>} 
+   {page==='meeting'&&<Meeting role={role} name={name} room={currentRoom} avatar={avatar} setToast={setToast} camera={camera} mic={mic} sharing={sharing} pinned={pinned} setCamera={setCamera} setMic={setMic} setSharing={setSharing} setPinned={setPinned} onLeave={leaveMeeting} onEnd={endRoom}/>} 
   </main>{toast&&<div className="toast">{toast}</div>}<footer>WebInternDev • Responsive meeting platform</footer>
  </div>
 }
@@ -196,7 +196,7 @@ function AdminPanel({view,close,credentials,setCredentials,attendance,users,setU
 function formatDate(v){return new Date(v).toLocaleString([], {dateStyle:'short',timeStyle:'short'})}
 function Stat({n,t}){return <div className="stat"><strong>{n}</strong><span>{t}</span></div>}
 function RoomCard({room,role,onJoin,onEnd}){return <div className="room-card"><div className="room-top"><span className="live">● LIVE</span><span>{room.participants}/50</span></div><h3>{room.title}</h3><p className="muted">Host: {room.host}</p><div className="room-actions">{role==='admin'?<button className="danger" onClick={onEnd}>End Meeting</button>:<button className="primary" onClick={onJoin}>{role==='host'?'Open Meeting':'Join Meeting'}</button>}</div></div>}
-function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setMic,setSharing,setPinned,onLeave,onEnd}){
+function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setMic,setSharing,setPinned,onLeave,onEnd,setToast}){
  const [connection,setConnection]=useState('connecting');
  const [participants,setParticipants]=useState([]);
  const [localTracks,setLocalTracks]=useState([]);
@@ -217,7 +217,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        const resp=await fetch('/api/livekit-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({roomName:room.id,participantName:name,role})});
        const data=await resp.json();
        if(!resp.ok) throw new Error(data.error||data.detail||`Token endpoint returned HTTP ${resp.status}.`);
-       const {Room,RoomEvent,Track,createLocalTracks}=await import('livekit-client');
+       const {Room,RoomEvent}=await import('livekit-client');
        liveRoom=new Room({adaptiveStream:true,dynacast:true});
        liveRoomRef.current=liveRoom;
        const refresh=()=>{
@@ -236,17 +236,30 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        liveRoom.on(RoomEvent.DataReceived,(payload,participant)=>{
          try{
            const msg=JSON.parse(new TextDecoder().decode(payload));
-           if(msg.type==='chat') setChat(c=>c.concat({id:crypto.randomUUID(),name:participant?.name||'Participant',text:msg.text,local:false}));
+           if(msg.type==='chat' && typeof msg.text==='string') setChat(c=>c.concat({id:crypto.randomUUID(),name:participant?.name||'Participant',text:msg.text,local:false}));
          }catch{}
        });
        await liveRoom.connect(data.url, data.token);
        setConnection('connected');
-       const tracks=await createLocalTracks({audio:true,video:true});
-       for(const track of tracks){
-         await liveRoom.localParticipant.publishTrack(track);
-         if(track.kind==='video' && !camera) track.mute();
-         if(track.kind==='audio' && !mic) track.mute();
+
+       // Request microphone and camera independently. A denied camera permission
+       // must never prevent the microphone (or meeting/chat) from working.
+       const tracks=[];
+       try {
+         await liveRoom.localParticipant.setMicrophoneEnabled(Boolean(mic));
+       } catch (e) {
+         console.warn('Microphone could not be enabled:', e);
+         if (mounted.current) { setMic(false); setConnection('connected'); }
        }
+       try {
+         await liveRoom.localParticipant.setCameraEnabled(Boolean(camera));
+       } catch (e) {
+         console.warn('Camera could not be enabled:', e);
+         if (mounted.current) setCamera(false);
+       }
+       liveRoom.localParticipant.trackPublications.forEach(pub=>{
+         if(pub.track) tracks.push(pub.track);
+       });
        if(mounted.current)setLocalTracks(tracks);
        refresh();
      }catch(e){
@@ -270,15 +283,27 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    const r=liveRoomRef.current;
    if(!r)return;
    const next=!mic;
-   await r.localParticipant.setMicrophoneEnabled(next);
-   setMic(next);
+   try {
+     await r.localParticipant.setMicrophoneEnabled(next);
+     setMic(next);
+   } catch(e) {
+     console.error('Microphone toggle failed:',e);
+     setMic(false);
+     setToast?.(`Microphone could not be ${next?'enabled':'changed'}. Check your browser microphone permission.`);
+   }
  };
  const toggleCamera=async()=>{
    const r=liveRoomRef.current;
    if(!r)return;
    const next=!camera;
-   await r.localParticipant.setCameraEnabled(next);
-   setCamera(next);
+   try {
+     await r.localParticipant.setCameraEnabled(next);
+     setCamera(next);
+   } catch(e) {
+     console.error('Camera toggle failed:',e);
+     setCamera(false);
+     setToast?.('Camera permission is unavailable. You can still use the microphone and chat.');
+   }
  };
  const toggleScreen=async()=>{
    const r=liveRoomRef.current;
@@ -292,17 +317,22 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        const pub=Array.from(r.localParticipant.videoTrackPublications.values()).find(p=>p.source==='screen_share');
        if(pub?.track){screenTrackRef.current=pub.track;setScreenTrack(pub.track);}
      }
-   }catch(e){setSharing(false);setPinned(false);}
+   }catch(e){setSharing(false);setPinned(false);setToast?.('Screen sharing could not start. Check browser permission and try again.');}
  };
  const sendChat=async(e)=>{
    e?.preventDefault();
    const text=message.trim();
    const r=liveRoomRef.current;
    if(!text||!r)return;
-   const data=new TextEncoder().encode(JSON.stringify({type:'chat',text}));
-   await r.localParticipant.publishData(data,{reliable:true});
-   setChat(c=>c.concat({id:crypto.randomUUID(),name,text,local:true}));
-   setMessage('');
+   try {
+     const data=new TextEncoder().encode(JSON.stringify({type:'chat',text}));
+     await r.localParticipant.publishData(data,{reliable:true,topic:'chat'});
+     setChat(c=>c.concat({id:crypto.randomUUID(),name,text,local:true}));
+     setMessage('');
+   } catch(err) {
+     console.error('Chat send failed:',err);
+     setToast?.('Chat message could not be sent. Check the meeting connection and try again.');
+   }
  };
  const trackForParticipant=(participant,source)=>{
    if(!participant)return null;
@@ -324,13 +354,33 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
      </div>
      <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=><ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar}/>)}</div>
    </div>
+   <div className="remote-audio" aria-hidden="true">{participants.map(p=><RemoteAudio key={p.identity} participant={p}/>)}</div>
    <div className="meeting-bottom">
-     <div className="meeting-controls"><button className={mic?'control active':'control'} onClick={toggleMic}>{mic?'🎤':'🔇'}</button><button className={camera?'control active':'control'} onClick={toggleCamera}>{camera?'📹':'📷'}</button>{role==='host'&&<><button className={sharing?'control active':'control'} onClick={toggleScreen}>🖥️</button><button disabled={!sharing} className={pinned?'control active':'control'} onClick={()=>setPinned(!pinned)}>📌</button></>}<button className="control" onClick={()=>document.getElementById('chat-panel')?.classList.toggle('open')}>💬</button><button className="control" onClick={()=>document.getElementById('participants-panel')?.classList.toggle('open')}>👥</button>{role==='host'?<button className="danger control" onClick={onEnd}>End</button>:<button className="danger control" onClick={onLeave}>Leave</button>}</div>
+     <div className="meeting-controls">
+       <button aria-label={mic?'Mute microphone':'Unmute microphone'} title={mic?'Mute microphone':'Unmute microphone'} className={mic?'control active':'control'} onClick={toggleMic}><span className="meeting-symbol">{mic?'🎤':'🔇'}</span><span>{mic?'Mute':'Unmute'}</span></button>
+       <button aria-label={camera?'Turn camera off':'Turn camera on'} title={camera?'Turn camera off':'Turn camera on'} className={camera?'control active':'control'} onClick={toggleCamera}><span className="meeting-symbol">{camera?'📹':'📷'}</span><span>Camera</span></button>
+       {role==='host'&&<>
+         <button aria-label={sharing?'Stop sharing screen':'Share screen'} title={sharing?'Stop sharing screen':'Share screen'} className={sharing?'control active':'control'} onClick={toggleScreen}><span className="meeting-symbol">🖥️</span><span>{sharing?'Stop share':'Share'}</span></button>
+         <button aria-label={pinned?'Unpin screen':'Pin screen'} title={pinned?'Unpin screen':'Pin screen'} disabled={!sharing} className={pinned?'control active':'control'} onClick={()=>setPinned(!pinned)}><span className="meeting-symbol">📌</span><span>{pinned?'Unpin':'Pin'}</span></button>
+       </>}
+       <button aria-label="Open chat" title="Chat" className="control" onClick={()=>document.getElementById('chat-panel')?.classList.toggle('open')}><span className="meeting-symbol">💬</span><span>Chat</span></button>
+       <button aria-label="Open participants" title="Participants" className="control" onClick={()=>document.getElementById('participants-panel')?.classList.toggle('open')}><span className="meeting-symbol">👥</span><span>People</span></button>
+       {role==='host'?<button aria-label="End meeting" title="End meeting" className="danger control end-control" onClick={onEnd}><span className="meeting-symbol">⛔</span><span>End</span></button>:<button aria-label="Leave meeting" title="Leave meeting" className="danger control end-control" onClick={onLeave}><span className="meeting-symbol">↩️</span><span>Leave</span></button>}
+     </div>
      {role==='host'&&<div className="host-note">Host controls: screen share + pin/unpin. Pinning is responsive across desktop, tablet, and mobile.</div>}
    </div>
    <aside id="chat-panel" className="meeting-side-panel"><div className="side-head"><b>Chat</b><button onClick={()=>document.getElementById('chat-panel')?.classList.remove('open')}>×</button></div><div className="chat-list">{chat.length?chat.map(m=><div className={m.local?'chat-msg local':'chat-msg'} key={m.id}><b>{m.name}</b><span>{m.text}</span></div>):<p className="muted">No messages yet.</p>}<div ref={chatEndRef}/></div><form className="chat-form" onSubmit={sendChat}><input value={message} onChange={e=>setMessage(e.target.value)} placeholder="Type a message…"/><button className="primary">Send</button></form></aside>
    <aside id="participants-panel" className="meeting-side-panel participants-panel"><div className="side-head"><b>Participants ({participants.length+1})</b><button onClick={()=>document.getElementById('participants-panel')?.classList.remove('open')}>×</button></div><div className="participant-list"><div className="participant-row"><img src={avatar}/><span>{name} <small>• {role}</small></span></div>{participants.map(p=><div className="participant-row" key={p.identity}><img src={avatar}/><span>{p.name||p.identity}</span></div>)}</div></aside>
  </section>
+}
+function RemoteAudio({participant}){
+ const audioTracks=participant?Array.from(participant.audioTrackPublications?.values?.()||[]).map(p=>p.track).filter(Boolean):[];
+ return <>{audioTracks.map((track,i)=><AudioTrack key={`${participant.identity}-${i}`} track={track}/>)}</>;
+}
+function AudioTrack({track}){
+ const ref=useRef(null);
+ useEffect(()=>{if(!track||!ref.current)return;const el=track.attach();el.autoplay=true;el.style.display='none';ref.current.innerHTML='';ref.current.appendChild(el);return()=>{try{track.detach(el);el.remove()}catch{}}},[track]);
+ return <div ref={ref} aria-hidden="true"/>;
 }
 function LiveVideo({track,className,label}){const ref=useRef(null);useEffect(()=>{if(!track||!ref.current)return;const el=track.attach();el.className=className||'';el.autoplay=true;el.playsInline=true;ref.current.innerHTML='';ref.current.appendChild(el);return()=>{try{track.detach(el);el.remove()}catch{}}},[track,className]);return <div ref={ref} className="live-video-wrap" aria-label={label}/>}
 function ParticipantTile({item,avatar}){const videoTrack=item.participant?Array.from(item.participant.videoTrackPublications?.values?.()||[]).find(p=>p.source==='camera'&&p.track)?.track||null:null;return <div className="thumb">{videoTrack?<LiveVideo track={videoTrack} className="thumb-video" label={item.name}/>:<img src={avatar}/>}<span>{item.name}{item.role==='host'?' • Host':''}</span></div>}
