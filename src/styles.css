@@ -599,3 +599,67 @@ footer{background:#071017!important;color:#718994!important;border-top:1px solid
 @media (max-width:380px){
   .participant-emote-effect{--emote-size:40px}
 }
+
+/* v1.9.5 — universal emote picker + true avatar-footprint sizing
+   Keep the picker inside the visible device viewport on phones/tablets,
+   and size the emote from the participant tile width so it never becomes
+   larger than the avatar area. */
+.participant-emote-effect{
+  width:min(42%,130px)!important;
+  height:auto!important;
+  aspect-ratio:1/1!important;
+  left:50%!important;
+  top:50%!important;
+  transform:translate(-50%,-50%)!important;
+  overflow:visible!important;
+}
+.participant-emote-effect img,
+.participant-emote-effect.emote-faaah img{
+  width:100%!important;
+  height:100%!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  object-fit:contain!important;
+  object-position:center!important;
+}
+.participant-emote-effect .emote-energy{
+  width:100%!important;
+  height:100%!important;
+}
+.participant-emote-effect .emote-burst{
+  inset:0!important;
+}
+
+/* On narrow devices the picker is viewport-anchored instead of being
+   positioned from the horizontally-scrollable control row. This prevents
+   it from opening off-screen on either side. */
+@media (max-width:1100px){
+  .interactive-picker{
+    position:fixed!important;
+    left:50%!important;
+    right:auto!important;
+    top:auto!important;
+    bottom:calc(92px + env(safe-area-inset-bottom))!important;
+    transform:translateX(-50%)!important;
+    width:min(360px,calc(100vw - 20px))!important;
+    min-width:0!important;
+    max-width:calc(100vw - 20px)!important;
+    max-height:min(62dvh,520px)!important;
+    overflow-y:auto!important;
+    overscroll-behavior:contain;
+    z-index:1000!important;
+  }
+  .interactive-picker-item{min-height:68px;touch-action:manipulation;}
+}
+
+@media (max-width:700px){
+  .participant-emote-effect{width:min(42%,130px)!important;}
+  .interactive-picker{bottom:calc(96px + env(safe-area-inset-bottom))!important;}
+}
+
+@media (max-width:480px){
+  .participant-emote-effect{width:min(42%,110px)!important;}
+  .interactive-picker{width:calc(100vw - 16px)!important;max-width:calc(100vw - 16px)!important;bottom:calc(94px + env(safe-area-inset-bottom))!important;border-radius:14px!important;padding:10px!important;}
+  .interactive-picker-item{grid-template-columns:48px 1fr;}
+  .interactive-picker-item img{width:48px;height:48px;}
+}
