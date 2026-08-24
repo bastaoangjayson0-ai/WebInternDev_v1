@@ -411,10 +411,10 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
            }
            if(msg?.type==='interactive_emote' && msg.targetId===''+msg.targetId){
              const id=msg.id||crypto.randomUUID();
-             const item={id,targetId:msg.targetId,targetName:msg.targetName||'Participant',kind:'sheeeshhh'};
+             const kind=msg.kind==='slap'?'slap':'sheeeshhh';const item={id,targetId:msg.targetId,targetName:msg.targetName||'Participant',kind};
              setInteractiveEffects(list=>list.some(x=>x.id===id)?list:list.concat(item));
-             playSheeeshhhSound();
-             setTimeout(()=>setInteractiveEffects(list=>list.filter(x=>x.id!==id)),2600);
+             (kind==='slap'?playSlapSound:playSheeeshhhSound)();
+             setTimeout(()=>setInteractiveEffects(list=>list.filter(x=>x.id!==id)),kind==='slap'?1500:2600);
              return;
            }
            if(topic && topic!=='chat') return;
@@ -588,10 +588,13 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const playSheeeshhhSound=()=>{
    try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;const ctx=new C();const osc=ctx.createOscillator();const gain=ctx.createGain();osc.type='triangle';osc.frequency.setValueAtTime(320,ctx.currentTime);osc.frequency.exponentialRampToValueAtTime(720,ctx.currentTime+.18);gain.gain.setValueAtTime(.0001,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.16,ctx.currentTime+.025);gain.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+.55);osc.connect(gain).connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+.58);setTimeout(()=>ctx.close(),800)}catch{}
  };
- const sendInteractiveEmote=async(target)=>{
-   if(!target)return;const id=crypto.randomUUID();const item={id,targetId:target.id,targetName:target.name||'Participant',kind:'sheeeshhh'};
-   setInteractiveEffects(list=>list.concat(item));playSheeeshhhSound();setInteractiveMenu(null);setTimeout(()=>setInteractiveEffects(list=>list.filter(x=>x.id!==id)),2600);
-   const r=liveRoomRef.current;if(!r?.localParticipant)return;const payload=new TextEncoder().encode(JSON.stringify({type:'interactive_emote',id,targetId:target.id,targetName:target.name||'Participant'}));
+ const playSlapSound=()=>{
+   try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;const ctx=new C();const now=ctx.currentTime;const osc=ctx.createOscillator(),gain=ctx.createGain(),noise=ctx.createBufferSource(),ng=ctx.createGain();const b=ctx.createBuffer(1,Math.floor(ctx.sampleRate*.11),ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length);noise.buffer=b;osc.type='square';osc.frequency.setValueAtTime(165,now);osc.frequency.exponentialRampToValueAtTime(70,now+.13);gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.13,now+.008);gain.gain.exponentialRampToValueAtTime(.0001,now+.15);ng.gain.setValueAtTime(.18,now);ng.gain.exponentialRampToValueAtTime(.0001,now+.12);osc.connect(gain).connect(ctx.destination);noise.connect(ng).connect(ctx.destination);osc.start(now);noise.start(now);osc.stop(now+.16);noise.stop(now+.12);setTimeout(()=>ctx.close(),450)}catch{}
+ };
+ const sendInteractiveEmote=async(target,kind='sheeeshhh')=>{
+   if(!target||target.local)return;const id=crypto.randomUUID();const item={id,targetId:target.id,targetName:target.name||'Participant',kind};
+   setInteractiveEffects(list=>list.concat(item));(kind==='slap'?playSlapSound:playSheeeshhhSound)();setInteractiveMenu(null);setTimeout(()=>setInteractiveEffects(list=>list.filter(x=>x.id!==id)),kind==='slap'?1500:2600);
+   const r=liveRoomRef.current;if(!r?.localParticipant)return;const payload=new TextEncoder().encode(JSON.stringify({type:'interactive_emote',id,targetId:target.id,targetName:target.name||'Participant',kind}));
    try{await r.localParticipant.publishData(payload,{reliable:true,topic:'interactive-emote'})}catch(e){console.warn('Interactive emote broadcast failed',e)}
  };
  const sendReaction=async(emoji)=>{
@@ -673,7 +676,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        <div className="reaction-layer" aria-live="polite">{reactions.map((r,i)=><div className="floating-reaction" style={{left:`${8+((i*19+Math.floor((r.seed||0)*31))%82)}%`,animationDelay:`${(i%3)*65}ms`}} key={r.id} title={`${r.name}: ${r.emoji}`}><span className="reaction-glow"/><span className="reaction-ring"/><span className="reaction-particle p1"/><span className="reaction-particle p2"/><span className="reaction-particle p3"/><span className="reaction-emoji">{r.emoji}</span></div>)}</div>
        {showingScreen&&<button type="button" className="screen-fit-button" aria-label={screenFullscreen?'Exit full screen':'Full screen shared screen'} title={screenFullscreen?'Exit full screen':'Full screen'} onClick={toggleScreenFullscreen}><MeetingIcon type={screenFullscreen?'fullscreenExit':'fullscreen'}/></button>}
      </div>
-     <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=>{const target={id:p.participant?.identity||`local-${name}`,name:p.name};const effect=interactiveEffects.find(x=>x.targetId===target.id);return <ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={effect} interactiveMenu={interactiveMenu?.id===target.id} onHold={()=>setInteractiveMenu(target)} onEmote={()=>sendInteractiveEmote(target)} onCloseMenu={()=>setInteractiveMenu(null)}/>})}</div>
+     <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=>{const target={id:p.participant?.identity||`local-${name}`,name:p.name,local:Boolean(p.local)};const effect=interactiveEffects.find(x=>x.targetId===target.id);return <ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={effect} interactiveMenu={interactiveMenu?.id===target.id} canInteract={!p.local} onHold={()=>!p.local&&setInteractiveMenu(target)} onEmote={(kind)=>!p.local&&sendInteractiveEmote(target,kind)} onCloseMenu={()=>setInteractiveMenu(null)}/>})}</div>
    </div>
    <div className="remote-audio" aria-hidden="true">{participants.map(p=><RemoteAudio key={p.identity} participant={p}/>)}</div>
    {micError&&<div className="meeting-status-error">Microphone: {micError} <button className="ghost small" onClick={toggleMic}>Try microphone again</button></div>}
@@ -732,14 +735,14 @@ function isActiveCameraPublication(publication){
  if(media?.muted===true)return false;
  return true;
 }
-function ParticipantTile({item,avatar,localCameraEnabled,interactiveEffect,interactiveMenu,onHold,onEmote,onCloseMenu}){
+function ParticipantTile({item,avatar,localCameraEnabled,interactiveEffect,interactiveMenu,canInteract,onHold,onEmote,onCloseMenu}){
  const publication=item.participant?Array.from(item.participant.videoTrackPublications?.values?.()||[]).find(p=>p.source==='camera'&&isActiveCameraPublication(p))||null:null;
  const showVideo=item.local ? Boolean(localCameraEnabled)&&Boolean(publication) : Boolean(publication);
  const videoTrack=showVideo?publication.track:null;const holdTimer=useRef(null);
- const startHold=(e)=>{if(e.pointerType==='mouse'&&e.button!==0)return;clearTimeout(holdTimer.current);holdTimer.current=setTimeout(()=>onHold?.(),420)};
+ const startHold=(e)=>{if(!canInteract)return;if(e.pointerType==='mouse'&&e.button!==0)return;clearTimeout(holdTimer.current);holdTimer.current=setTimeout(()=>onHold?.(),420)};
  const stopHold=()=>clearTimeout(holdTimer.current);
  useEffect(()=>()=>clearTimeout(holdTimer.current),[]);
- return <div className={`thumb interactive-target ${interactiveEffect?'interactive-hit':''}`} onPointerDown={startHold} onPointerUp={stopHold} onPointerLeave={stopHold} onPointerCancel={stopHold} onContextMenu={e=>{e.preventDefault();onHold?.()}}>{videoTrack?<LiveVideo track={videoTrack} className="thumb-video" label={item.name}/>:<div className="participant-avatar-fallback"><img src={avatar} alt=""/><span>{item.name}{item.role==='host'?' • Host':''}</span></div>}<span className="thumb-name">{item.name}{item.role==='host'?' • Host':''}</span>{interactiveMenu&&<div className="interactive-emote-menu" onPointerDown={e=>e.stopPropagation()}><button type="button" className="interactive-emote-choice" onPointerUp={e=>{e.preventDefault();e.stopPropagation();onEmote?.()}} onClick={e=>{e.preventDefault();e.stopPropagation();onEmote?.()}}><img src={sheeeshhhEmote} alt="SHEEESHHH interactive emote"/><span>SHEEESHHH!</span></button><button type="button" className="interactive-emote-close" onClick={onCloseMenu} aria-label="Close interactive emote menu">×</button></div>}{interactiveEffect&&<div className="participant-emote-effect" aria-label={`${interactiveEffect.targetName} sent SHEEESHHH`}><div className="emote-energy"/><div className="emote-text">SHEEESHHH!</div><img src={sheeeshhhEmote} alt=""/></div>}</div>
+ return <div className={`thumb interactive-target ${interactiveEffect?'interactive-hit':''}`} onPointerDown={startHold} onPointerUp={stopHold} onPointerLeave={stopHold} onPointerCancel={stopHold} onContextMenu={e=>{e.preventDefault();if(canInteract)onHold?.()}}>{videoTrack?<><LiveVideo track={videoTrack} className="thumb-video" label={item.name}/><span className="thumb-name">{item.name}{item.role==='host'?' • Host':''}</span></>:<div className="participant-avatar-fallback"><img src={avatar} alt=""/><span>{item.name}{item.role==='host'?' • Host':''}</span></div>}{interactiveMenu&&canInteract&&<div className="interactive-emote-menu" onPointerDown={e=>e.stopPropagation()}><button type="button" className="interactive-emote-choice" onPointerUp={e=>{e.preventDefault();e.stopPropagation();onEmote?.('sheeeshhh')}} onClick={e=>{e.preventDefault();e.stopPropagation();onEmote?.('sheeeshhh')}}><img src={sheeeshhhEmote} alt="SHEEESHHH interactive emote"/><span>SHEEESHHH!</span></button><button type="button" className="interactive-emote-choice slap-choice" onPointerUp={e=>{e.preventDefault();e.stopPropagation();onEmote?.('slap')}} onClick={e=>{e.preventDefault();e.stopPropagation();onEmote?.('slap')}}><b aria-hidden="true">👋</b><span>SLAP</span></button><button type="button" className="interactive-emote-close" onClick={onCloseMenu} aria-label="Close interactive emote menu">×</button></div>}{interactiveEffect?.kind==='sheeeshhh'&&<div className="participant-emote-effect" aria-label={`${interactiveEffect.targetName} received SHEEESHHH`}><div className="emote-energy"/><div className="emote-text">SHEEESHHH!</div><img src={sheeeshhhEmote} alt=""/></div>}{interactiveEffect?.kind==='slap'&&<div className="participant-slap-effect" aria-label={`${interactiveEffect.targetName} received a slap`}><div className="slap-burst"/><div className="slap-hand">👋</div><div className="slap-impact">💥</div></div>}</div>
 }
 
 createRoot(document.getElementById('root')).render(<App/>);

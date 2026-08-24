@@ -337,3 +337,28 @@
 @keyframes target-nod{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px) rotate(-1deg)}55%{transform:translateX(5px) rotate(1deg)}78%{transform:translateX(-2px)}}
 @media(max-width:700px){.interactive-emote-choice span{display:none}.interactive-emote-choice img{width:52px;height:52px}.participant-emote-effect{inset:-34% -35% auto}.participant-emote-effect img{width:150px}}
 @media(prefers-reduced-motion:reduce){.participant-emote-effect,.participant-emote-effect img,.interactive-hit,.emote-text,.emote-energy{animation-duration:.01ms!important;animation-iteration-count:1!important}}
+
+/* v1.7.2 participant tile + targeted emote anchor fix */
+.thumb.interactive-target .participant-avatar-fallback{position:relative;z-index:2}
+/* Never render a second name when the fallback avatar already owns the label. */
+.thumb.interactive-target .participant-avatar-fallback + .thumb-name{display:none}
+/* Keep the interactive emote attached to the selected participant, near avatar/name. */
+.thumb.interactive-target .participant-emote-effect{inset:auto auto auto 50%;top:50%;width:min(150px,72%);height:150px;transform:translate(-50%,-62%);z-index:90;overflow:visible}
+.thumb.interactive-target .participant-emote-effect img{width:min(142px,100%);max-height:130px;object-fit:contain}
+.thumb.interactive-target .participant-emote-effect .emote-energy{width:96%;height:auto}
+.thumb.interactive-target .participant-emote-effect .emote-text{top:-8px;white-space:nowrap;font-size:clamp(12px,3vw,22px)}
+@media(max-width:700px){.thumb.interactive-target .participant-emote-effect{width:122px;height:122px;transform:translate(-50%,-58%)}.thumb.interactive-target .participant-emote-effect img{width:116px;max-height:112px}.thumb.interactive-target .participant-emote-effect .emote-text{top:-2px;font-size:14px}}
+/* v1.7.3: remote-only participant interactions + Slap effect */
+.thumb.interactive-target{isolation:isolate}
+.thumb.interactive-target:not(.interactive-hit){} 
+.interactive-emote-choice.slap-choice{min-width:78px;justify-content:center}.interactive-emote-choice.slap-choice b{font-size:30px;line-height:1;display:inline-block;animation:slap-hand-idle 1.2s ease-in-out infinite}
+.participant-slap-effect{position:absolute;inset:0;z-index:95;pointer-events:none;overflow:visible;animation:slap-target-shake .55s ease-out .34s both}
+.slap-hand{position:absolute;left:-42%;top:37%;font-size:clamp(44px,8vw,82px);filter:drop-shadow(0 8px 7px rgba(0,0,0,.4));animation:slap-swing .62s cubic-bezier(.15,.8,.2,1) forwards}
+.slap-impact{position:absolute;left:54%;top:30%;font-size:clamp(28px,5vw,52px);opacity:0;animation:slap-impact-pop .48s ease-out .43s forwards}
+.slap-burst{position:absolute;left:58%;top:43%;width:12px;height:12px;border-radius:50%;background:#ffd43b;box-shadow:0 0 0 0 rgba(255,212,59,.9),20px -14px 0 -6px #ff6b6b,-22px -9px 0 -6px #ff922b,8px 23px 0 -6px #fff3bf;opacity:0;animation:slap-burst .42s ease-out .43s forwards}
+@keyframes slap-hand-idle{50%{transform:rotate(7deg) translateY(-2px)}}
+@keyframes slap-swing{0%{transform:translateX(-30%) rotate(-42deg);opacity:0}20%{opacity:1}72%{transform:translateX(235%) rotate(18deg);opacity:1}100%{transform:translateX(270%) rotate(28deg);opacity:0}}
+@keyframes slap-impact-pop{0%{opacity:0;transform:scale(.2) rotate(-18deg)}40%{opacity:1;transform:scale(1.3) rotate(8deg)}100%{opacity:0;transform:scale(.8) rotate(18deg)}}
+@keyframes slap-burst{0%{opacity:0;transform:scale(.2)}45%{opacity:1;transform:scale(4.2)}100%{opacity:0;transform:scale(7)}}
+@keyframes slap-target-shake{0%,100%{transform:translateX(0)}18%{transform:translateX(9px) rotate(.6deg)}35%{transform:translateX(-11px) rotate(-.6deg)}55%{transform:translateX(7px)}75%{transform:translateX(-4px)}}
+@media(max-width:700px){.interactive-emote-choice.slap-choice span{display:none}.interactive-emote-choice.slap-choice{min-width:0}.slap-hand{font-size:52px}.slap-impact{font-size:34px}}
