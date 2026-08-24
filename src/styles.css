@@ -322,239 +322,6 @@
 @keyframes reaction-particle{0%{opacity:0;transform:translate(0,0) scale(.3)}18%{opacity:1}100%{opacity:0;transform:translate(var(--x),-24px) scale(1.3)}}
 @keyframes reaction-float{0%{transform:translateY(14px);opacity:0}10%{opacity:1}74%{opacity:1}100%{transform:translateY(-42vh);opacity:0}}
 @media(max-width:700px){.reaction-picker{max-width:calc(100vw - 24px);gap:4px}.reaction-picker button{flex-basis:32px;width:32px;height:32px;font-size:19px}.floating-reaction{width:40px;height:40px}.reaction-emoji{font-size:32px}}
-/* v1.7.0 Participant Interactive Emote: long-press a participant, then SHEEESHHH */
-.interactive-target{position:relative;touch-action:manipulation;overflow:visible}
-.interactive-target:active{transform:scale(.985)}
-.interactive-emote-menu{position:absolute;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);z-index:120;display:flex;align-items:center;gap:7px;padding:8px 9px;border-radius:20px;background:rgba(18,25,32,.98);border:1px solid rgba(255,255,255,.18);box-shadow:0 18px 42px rgba(0,0,0,.5);animation:interactive-menu-in .22s cubic-bezier(.2,1.5,.4,1);pointer-events:auto}
-.interactive-emote-choice{border:0;background:rgba(255,255,255,.06);color:#fff;display:flex;align-items:center;gap:7px;font-weight:800;letter-spacing:.02em;cursor:pointer;touch-action:manipulation;padding:5px 8px;border-radius:13px}.interactive-emote-choice:hover{background:rgba(255,255,255,.1)}
-.interactive-emote-choice img{width:44px;height:44px;object-fit:contain;border-radius:10px}.interactive-emote-close{border:0;background:rgba(255,255,255,.09);color:#fff;width:26px;height:26px;border-radius:50%;cursor:pointer}
-.participant-emote-effect{position:absolute;inset:-48% -20% auto;z-index:80;pointer-events:none;display:grid;place-items:center;transform-origin:50% 70%;animation:sheeeshhh-pop 2.6s cubic-bezier(.2,.9,.25,1) forwards}.participant-emote-effect img{width:min(190px,68vw);max-width:none;filter:drop-shadow(0 14px 18px rgba(0,0,0,.55));animation:sheeeshhh-bob .62s ease-in-out 3}.emote-text{position:absolute;top:-18px;z-index:3;font-weight:1000;font-size:clamp(16px,2.4vw,32px);letter-spacing:.08em;color:#fff;text-shadow:0 3px 0 #35196e,0 0 18px #a76cff;transform:rotate(-6deg);animation:sheeeshhh-text .55s cubic-bezier(.15,1.8,.35,1) both}.emote-energy{position:absolute;width:75%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(172,104,255,.62),rgba(84,32,220,.25) 45%,transparent 70%);filter:blur(7px);animation:sheeeshhh-energy 1.1s ease-out both}.interactive-hit{animation:target-nod .48s ease-out .28s}
-@keyframes interactive-menu-in{from{opacity:0;transform:translateX(-50%) translateY(10px) scale(.75)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
-@keyframes sheeeshhh-pop{0%{opacity:0;transform:scale(.15) translateY(25px)}12%{opacity:1;transform:scale(1.13) translateY(-8px)}28%{transform:scale(.96) translateY(0)}76%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.82) translateY(-18px)}}
-@keyframes sheeeshhh-bob{0%,100%{transform:rotate(0) translateY(0)}35%{transform:rotate(-4deg) translateY(-7px)}70%{transform:rotate(4deg) translateY(-3px)}}
-@keyframes sheeeshhh-text{0%{opacity:0;transform:scale(.15) rotate(15deg)}70%{opacity:1;transform:scale(1.22) rotate(-8deg)}100%{transform:scale(1) rotate(-6deg)}}
-@keyframes sheeeshhh-energy{0%{opacity:0;transform:scale(.2)}30%{opacity:1}100%{opacity:0;transform:scale(1.8)}}
-@keyframes target-nod{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px) rotate(-1deg)}55%{transform:translateX(5px) rotate(1deg)}78%{transform:translateX(-2px)}}
-@media(max-width:700px){.interactive-emote-choice span{display:none}.interactive-emote-choice img{width:52px;height:52px}.participant-emote-effect{inset:-34% -35% auto}.participant-emote-effect img{width:150px}}
-@media(prefers-reduced-motion:reduce){.participant-emote-effect,.participant-emote-effect img,.interactive-hit,.emote-text,.emote-energy{animation-duration:.01ms!important;animation-iteration-count:1!important}}
-
-/* v1.7.2 participant tile + targeted emote anchor fix */
-.thumb.interactive-target .participant-avatar-fallback{position:relative;z-index:2}
-/* Never render a second name when the fallback avatar already owns the label. */
-.thumb.interactive-target .participant-avatar-fallback + .thumb-name{display:none}
-/* Keep the interactive emote attached to the selected participant, near avatar/name. */
-.thumb.interactive-target .participant-emote-effect{inset:auto auto auto 50%;top:50%;width:min(150px,72%);height:150px;transform:translate(-50%,-62%);z-index:90;overflow:visible}
-.thumb.interactive-target .participant-emote-effect img{width:min(142px,100%);max-height:130px;object-fit:contain}
-.thumb.interactive-target .participant-emote-effect .emote-energy{width:96%;height:auto}
-.thumb.interactive-target .participant-emote-effect .emote-text{top:-8px;white-space:nowrap;font-size:clamp(12px,3vw,22px)}
-@media(max-width:700px){.thumb.interactive-target .participant-emote-effect{width:122px;height:122px;transform:translate(-50%,-58%)}.thumb.interactive-target .participant-emote-effect img{width:116px;max-height:112px}.thumb.interactive-target .participant-emote-effect .emote-text{top:-2px;font-size:14px}}
-/* v1.7.3: remote-only participant interactions + Slap effect */
-.thumb.interactive-target{isolation:isolate}
-.thumb.interactive-target:not(.interactive-hit){} 
-.interactive-emote-choice.slap-choice{min-width:78px;justify-content:center}.interactive-emote-choice.slap-choice b{font-size:30px;line-height:1;display:inline-block;animation:slap-hand-idle 1.2s ease-in-out infinite}
-.participant-slap-effect{position:absolute;inset:0;z-index:95;pointer-events:none;overflow:visible;animation:slap-target-shake .55s ease-out .34s both}
-.slap-hand{position:absolute;left:-42%;top:37%;font-size:clamp(44px,8vw,82px);filter:drop-shadow(0 8px 7px rgba(0,0,0,.4));animation:slap-swing .62s cubic-bezier(.15,.8,.2,1) forwards}
-.slap-impact{position:absolute;left:54%;top:30%;font-size:clamp(28px,5vw,52px);opacity:0;animation:slap-impact-pop .48s ease-out .43s forwards}
-.slap-burst{position:absolute;left:58%;top:43%;width:12px;height:12px;border-radius:50%;background:#ffd43b;box-shadow:0 0 0 0 rgba(255,212,59,.9),20px -14px 0 -6px #ff6b6b,-22px -9px 0 -6px #ff922b,8px 23px 0 -6px #fff3bf;opacity:0;animation:slap-burst .42s ease-out .43s forwards}
-@keyframes slap-hand-idle{50%{transform:rotate(7deg) translateY(-2px)}}
-@keyframes slap-swing{0%{transform:translateX(-30%) rotate(-42deg);opacity:0}20%{opacity:1}72%{transform:translateX(235%) rotate(18deg);opacity:1}100%{transform:translateX(270%) rotate(28deg);opacity:0}}
-@keyframes slap-impact-pop{0%{opacity:0;transform:scale(.2) rotate(-18deg)}40%{opacity:1;transform:scale(1.3) rotate(8deg)}100%{opacity:0;transform:scale(.8) rotate(18deg)}}
-@keyframes slap-burst{0%{opacity:0;transform:scale(.2)}45%{opacity:1;transform:scale(4.2)}100%{opacity:0;transform:scale(7)}}
-@keyframes slap-target-shake{0%,100%{transform:translateX(0)}18%{transform:translateX(9px) rotate(.6deg)}35%{transform:translateX(-11px) rotate(-.6deg)}55%{transform:translateX(7px)}75%{transform:translateX(-4px)}}
-@media(max-width:700px){.interactive-emote-choice.slap-choice span{display:none}.interactive-emote-choice.slap-choice{min-width:0}.slap-hand{font-size:52px}.slap-impact{font-size:34px}}
-
-/* v1.7.4: transparent SHEEESHHH sticker + exact avatar anchor */
-.participant-avatar-fallback{position:relative;isolation:isolate}
-.participant-avatar-fallback .participant-emote-effect{position:absolute;left:29px;top:29px;width:142px;height:142px;transform:translate(-50%,-50%);z-index:90;display:grid;place-items:center;overflow:visible;pointer-events:none}
-.participant-avatar-fallback .participant-emote-effect img{width:132px;height:auto;max-height:142px;object-fit:contain;border-radius:0;background:transparent;mix-blend-mode:normal}
-.participant-avatar-fallback .participant-emote-effect .emote-energy{width:120px;aspect-ratio:1}
-.participant-avatar-fallback .participant-emote-effect .emote-text{top:-20px;font-size:18px;white-space:nowrap}
-/* Camera-on tiles remain centered on the participant tile. */
-.thumb-video~.participant-emote-effect{left:50%;top:50%;transform:translate(-50%,-50%)}
-@media(max-width:700px){
- .participant-avatar-fallback .participant-emote-effect{left:22px;top:22px;width:112px;height:112px}
- .participant-avatar-fallback .participant-emote-effect img{width:106px;max-height:112px}
- .participant-avatar-fallback .participant-emote-effect .emote-energy{width:96px}
- .participant-avatar-fallback .participant-emote-effect .emote-text{top:-15px;font-size:14px}
-}
-/* v1.7.5: avatar-centered interactive emote, single sound, no duplicate playback */
-.participant-avatar-anchor{position:relative;width:100%;height:100%;min-height:120px;display:grid;place-items:center;isolation:isolate;overflow:visible}
-.participant-avatar{max-width:86px;max-height:86px;border-radius:50%;position:relative;z-index:2;transition:opacity .12s ease,transform .12s ease}
-.thumb.emote-active .participant-avatar{opacity:0;transform:scale(.92)}
-.avatar-emote{position:absolute;left:50%;top:50%;width:118px;height:118px;transform:translate(-50%,-50%);z-index:20;display:grid;place-items:center;pointer-events:none;animation:avatar-emote-pop 2.3s cubic-bezier(.2,.9,.25,1) forwards}
-.avatar-emote img{width:112px;height:112px;object-fit:contain;filter:drop-shadow(0 8px 12px rgba(0,0,0,.42));z-index:2;animation:avatar-emote-bob .55s ease-in-out 3}
-.avatar-emote b{position:absolute;top:-6px;left:50%;transform:translateX(-50%) rotate(-6deg);white-space:nowrap;font-size:16px;letter-spacing:.04em;color:#fff;text-shadow:0 2px 0 #3c1c7d,0 0 12px rgba(155,91,255,.9);z-index:4;animation:avatar-emote-text .45s cubic-bezier(.15,1.7,.35,1) both}
-.emote-burst{position:absolute;width:58px;height:58px;border-radius:50%;background:radial-gradient(circle,rgba(171,108,255,.78) 0 20%,rgba(130,58,255,.38) 35%,transparent 68%);filter:blur(2px);animation:avatar-emote-burst .75s ease-out both;z-index:1}
-.avatar-emote:before,.avatar-emote:after{content:'';position:absolute;width:8px;height:8px;border-radius:50%;background:#c9a7ff;box-shadow:26px -20px 0 -2px #fff,-31px -13px 0 -2px #a980ff,17px 27px 0 -2px #fff;animation:avatar-particles .9s ease-out both;z-index:3}
-.avatar-emote:after{transform:rotate(75deg);animation-delay:.08s}
-@keyframes avatar-emote-pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.15)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}28%{transform:translate(-50%,-50%) scale(.96)}76%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-55%) scale(.86)}}
-@keyframes avatar-emote-bob{50%{transform:translateY(-6px) rotate(-3deg)}}
-@keyframes avatar-emote-text{from{opacity:0;transform:translateX(-50%) scale(.25) rotate(8deg)}to{opacity:1;transform:translateX(-50%) scale(1) rotate(-6deg)}}
-@keyframes avatar-emote-burst{0%{opacity:.95;transform:scale(.2)}100%{opacity:0;transform:scale(2.3)}}
-@keyframes avatar-particles{0%{opacity:0;transform:scale(.3)}25%{opacity:1}100%{opacity:0;transform:scale(1.9)}}
-.interactive-backdrop{position:fixed;inset:0;z-index:500;background:rgba(4,8,13,.28);display:grid;place-items:center;padding:16px}
-.interactive-panel{width:min(230px,88vw);padding:12px;border-radius:18px;background:#17222c;border:1px solid rgba(255,255,255,.16);box-shadow:0 20px 50px rgba(0,0,0,.4);text-align:center;color:#fff;animation:interactive-menu-in .2s ease-out}
-.interactive-title{font-weight:800;font-size:14px;margin-bottom:8px}.sheesh-choice{border:0;width:100%;border-radius:14px;padding:7px;background:rgba(255,255,255,.07);color:#fff;display:flex;align-items:center;justify-content:center;gap:9px;cursor:pointer}.sheesh-choice img{width:58px;height:58px;object-fit:contain}.sheesh-choice span{font-weight:900;font-size:13px}.interactive-panel small{display:block;margin-top:7px;opacity:.7}
-@media(max-width:700px){.participant-avatar-anchor{min-height:92px}.participant-avatar{max-width:70px;max-height:70px}.avatar-emote{width:92px;height:92px}.avatar-emote img{width:88px;height:88px}.avatar-emote b{font-size:12px;top:-4px}}
-
-/* v1.7.6: while an interactive emote is active, replace the default avatar temporarily. */
-.thumb.interactive-hit .participant-avatar-fallback > img{opacity:0;visibility:hidden;transition:opacity .12s ease}
-.thumb.interactive-hit .participant-avatar-fallback > span{position:relative;z-index:95}
-
-
-/* v1.7.7 direct self-hold Interactive Emote */
-.thumb.interactive-target{position:relative;isolation:isolate;overflow:visible;touch-action:none;-webkit-touch-callout:none;user-select:none}
-.thumb.interactive-target[role="button"]{cursor:pointer}
-.thumb.interactive-target .participant-avatar-fallback{position:relative;z-index:2;transition:opacity .12s ease,transform .12s ease}
-.thumb.interactive-target .participant-avatar-fallback.avatar-hidden-for-emote{opacity:0;transform:scale(.88);pointer-events:none}
-.thumb.interactive-target .participant-emote-effect{position:absolute!important;left:50%!important;top:50%!important;inset:auto!important;width:min(148px,82%)!important;height:min(148px,82vw)!important;transform:translate(-50%,-50%)!important;display:grid!important;place-items:center!important;z-index:200!important;pointer-events:none!important;overflow:visible!important}
-.thumb.interactive-target .participant-emote-effect img{width:min(132px,100%)!important;height:auto!important;max-height:132px!important;object-fit:contain!important;animation:sheeeshhh-bob .62s ease-in-out 3!important}
-.thumb.interactive-target .participant-emote-effect .emote-text{top:-12px!important;left:50%;transform:translateX(-50%) rotate(-6deg);white-space:nowrap}
-.emote-burst{position:absolute;inset:-8%;pointer-events:none}.emote-burst i{position:absolute;left:50%;top:50%;width:7px;height:7px;border-radius:50%;background:#c79bff;box-shadow:0 0 12px #a76cff;animation:emote-particle .8s ease-out both}.emote-burst i:nth-child(1){--x:-58px;--y:-45px}.emote-burst i:nth-child(2){--x:56px;--y:-48px;animation-delay:.06s}.emote-burst i:nth-child(3){--x:-68px;--y:4px;animation-delay:.11s}.emote-burst i:nth-child(4){--x:70px;--y:6px;animation-delay:.15s}.emote-burst i:nth-child(5){--x:-34px;--y:56px;animation-delay:.09s}.emote-burst i:nth-child(6){--x:38px;--y:58px;animation-delay:.18s}
-@keyframes emote-particle{0%{opacity:0;transform:translate(-50%,-50%) scale(.2)}18%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) scale(1.35)}}
-@media(max-width:700px){.thumb.interactive-target .participant-emote-effect{width:118px!important;height:118px!important}.thumb.interactive-target .participant-emote-effect img{width:108px!important;max-height:108px!important}}
-
-/* v1.8.0 Interactive Emote selection: extensible picker for current + future emotes */
-.interactive-control-wrap{position:relative;display:inline-flex}
-.interactive-open .meeting-symbol{font-size:19px;line-height:1}
-.interactive-picker{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);width:min(340px,88vw);padding:12px;border-radius:18px;background:rgba(18,27,35,.99);border:1px solid rgba(255,255,255,.16);box-shadow:0 18px 46px rgba(0,0,0,.48);z-index:160;color:#fff}
-.interactive-picker-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px}
-.interactive-picker-head b{font-size:14px}
-.interactive-picker-head button{border:0;background:rgba(255,255,255,.09);color:#fff;width:27px;height:27px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1}
-.interactive-picker p{margin:0 0 10px;font-size:11px;line-height:1.35;opacity:.72}
-.interactive-picker-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.interactive-picker-item{min-width:0;min-height:86px;border:1px solid rgba(255,255,255,.1);border-radius:14px;background:rgba(255,255,255,.055);color:#fff;padding:7px;display:flex;align-items:center;justify-content:center;gap:6px;flex-direction:column;cursor:pointer;transition:transform .14s ease,background .14s ease,border-color .14s ease}
-.interactive-picker-item:hover:not(:disabled){transform:translateY(-2px);background:rgba(255,255,255,.1)}
-.interactive-picker-item.selected{border-color:rgba(181,132,255,.85);background:rgba(127,74,218,.2);box-shadow:0 0 0 1px rgba(181,132,255,.2) inset}
-.interactive-picker-item img{width:48px;height:48px;object-fit:contain}
-.interactive-picker-emoji{height:48px;display:grid;place-items:center;font-size:39px}
-.interactive-picker-item strong{font-size:11px;line-height:1.1;text-align:center}
-.interactive-picker-item small{font-size:9px;opacity:.75}
-.interactive-picker-item.disabled{opacity:.42;cursor:not-allowed;border-style:dashed}
-.interactive-picker-hint{display:block;margin-top:9px;text-align:center;font-size:10px;opacity:.55}
-@media(max-width:700px){.interactive-picker{bottom:calc(100% + 8px);width:min(310px,92vw);padding:10px}.interactive-picker-item{min-height:82px}.interactive-picker-item img{width:46px;height:46px}.interactive-picker-emoji{height:46px;font-size:36px}}
-
-/* v1.8.1: make the Interactive Emote selector clearly visible and usable on all screen sizes. */
-.interactive-control-wrap{z-index:300!important}
-.interactive-selected-icon{width:22px;height:22px;display:grid;place-items:center}
-.interactive-selected-icon img{width:22px!important;height:22px!important;object-fit:contain;border-radius:4px}
-.interactive-picker{max-height:min(420px,70vh);overflow:auto}
-@media(max-width:700px){
-  .meeting-controls{overflow-x:auto;overflow-y:visible!important}
-  .interactive-control-wrap{position:static!important}
-  .interactive-picker{position:fixed!important;left:50%!important;bottom:76px!important;top:auto!important;transform:translateX(-50%)!important;width:min(340px,calc(100vw - 24px))!important;max-height:65vh!important;z-index:9999!important}
-}
-
-
-/* v1.8.2: Interactive Emote fits cleanly on User / Host / Admin screens. */
-.interactive-control-wrap{position:relative;z-index:1200}
-.interactive-picker{box-sizing:border-box;width:min(300px,calc(100vw - 24px));max-height:min(360px,calc(100vh - 130px));overflow-y:auto;overflow-x:hidden;padding:10px;border-radius:16px}
-.interactive-picker p{font-size:10px;margin-bottom:8px}
-.interactive-picker-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
-.interactive-picker-item{min-height:76px;padding:6px;border-radius:12px;gap:4px}
-.interactive-picker-item img{width:42px;height:42px}
-.interactive-picker-emoji{height:42px;font-size:32px}
-.interactive-picker-item strong{font-size:10px}
-/* Keep the animated emote inside the participant tile instead of letting it push into other tiles. */
-.thumb.interactive-target{overflow:hidden!important}
-.thumb.interactive-target .participant-emote-effect{width:min(86%,150px)!important;height:min(86%,150px)!important;max-width:86%!important;max-height:86%!important;overflow:hidden!important}
-.thumb.interactive-target .participant-emote-effect img{width:min(78%,132px)!important;max-width:78%!important;max-height:78%!important}
-.thumb.interactive-target .participant-emote-effect .emote-text{max-width:100%;overflow:hidden;text-overflow:ellipsis;font-size:clamp(10px,2.5vw,18px)!important}
-@media(max-width:700px){
-  .interactive-picker{position:fixed!important;left:50%!important;bottom:70px!important;top:auto!important;transform:translateX(-50%)!important;width:min(292px,calc(100vw - 20px))!important;max-height:calc(100vh - 100px)!important;padding:9px!important}
-  .interactive-picker-head b{font-size:13px}
-  .interactive-picker p{font-size:9px;line-height:1.25}
-  .interactive-picker-item{min-height:68px;padding:5px}
-  .interactive-picker-item img{width:38px;height:38px}
-  .interactive-picker-emoji{height:38px;font-size:29px}
-  .interactive-picker-item strong{font-size:9px}
-  .thumb.interactive-target .participant-emote-effect{width:78%!important;height:78%!important}
-  .thumb.interactive-target .participant-emote-effect img{width:72%!important;max-height:72%!important}
-  .thumb.interactive-target .participant-emote-effect .emote-text{font-size:11px!important;top:0!important}
-}
-@media(max-width:380px){
-  .interactive-picker{width:calc(100vw - 14px)!important;bottom:66px!important}
-  .interactive-picker-grid{gap:5px}
-  .interactive-picker-item{min-height:62px}
-}
-@media(max-height:560px){
-  .interactive-picker{max-height:calc(100vh - 82px)!important}
-  .interactive-picker p{display:none}
-  .interactive-picker-item{min-height:58px}
-  .interactive-picker-item img{width:34px;height:34px}
-  .interactive-picker-emoji{height:34px;font-size:26px}
-}
-
-/* v1.8.3: STRICTLY CONTAIN INTERACTIVE EMOTE INSIDE THE PARTICIPANT TILE.
-   The effect is now sized from the tile itself, never from the viewport. */
-.thumb.interactive-target{position:relative!important;overflow:hidden!important;isolation:isolate!important;contain:paint!important}
-.thumb.interactive-target .participant-emote-effect{
-  position:absolute!important;
-  inset:0!important;
-  left:0!important;
-  top:0!important;
-  width:100%!important;
-  height:100%!important;
-  max-width:none!important;
-  max-height:none!important;
-  margin:0!important;
-  padding:0!important;
-  transform:none!important;
-  overflow:hidden!important;
-  display:grid!important;
-  place-items:center!important;
-  z-index:90!important;
-  animation:contained-sheeeshhh-pop 2.6s cubic-bezier(.2,.9,.25,1) forwards!important;
-}
-.thumb.interactive-target .participant-emote-effect img{
-  width:auto!important;
-  height:auto!important;
-  max-width:68%!important;
-  max-height:68%!important;
-  object-fit:contain!important;
-  margin:0!important;
-  transform-origin:center!important;
-}
-.thumb.interactive-target .participant-emote-effect .emote-energy{
-  width:58%!important;
-  height:58%!important;
-  max-width:58%!important;
-  max-height:58%!important;
-}
-.thumb.interactive-target .participant-emote-effect .emote-burst{
-  width:46%!important;
-  height:46%!important;
-  max-width:46%!important;
-  max-height:46%!important;
-}
-.thumb.interactive-target .participant-emote-effect .emote-text{
-  top:7%!important;
-  left:50%!important;
-  max-width:86%!important;
-  overflow:hidden!important;
-  text-overflow:clip!important;
-  white-space:nowrap!important;
-  font-size:clamp(9px,2.6cqw,18px)!important;
-  line-height:1!important;
-  text-align:center!important;
-}
-@keyframes contained-sheeeshhh-pop{
-  0%{opacity:0;transform:scale(.15)}
-  12%{opacity:1;transform:scale(1.05)}
-  28%{transform:scale(.96)}
-  76%{opacity:1;transform:scale(1)}
-  100%{opacity:0;transform:scale(.84)}
-}
-@media(max-width:700px){
-  .thumb.interactive-target .participant-emote-effect img{max-width:64%!important;max-height:64%!important}
-  .thumb.interactive-target .participant-emote-effect .emote-energy{width:54%!important;height:54%!important}
-  .thumb.interactive-target .participant-emote-effect .emote-text{top:9%!important;font-size:clamp(8px,2.8vw,13px)!important}
-}
-@media(max-height:560px){
-  .thumb.interactive-target .participant-emote-effect img{max-width:58%!important;max-height:58%!important}
-  .thumb.interactive-target .participant-emote-effect .emote-text{top:6%!important;font-size:9px!important}
-}
-
 /* v1.8.4: mobile/tablet viewport fit — controls and meeting layout never require horizontal page scrolling. */
 html,body,#root{max-width:100%;overflow-x:hidden}
 .meeting{overflow-x:hidden}
@@ -606,4 +373,63 @@ html,body,#root{max-width:100%;overflow-x:hidden}
   .meeting-controls{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding-inline:6px}
   .meeting-controls .control,.meeting-controls .end-control{height:46px;font-size:10px}
   .meeting-controls .end-control{grid-column:1/-1}
+}
+
+
+/* v1.8.5 FINAL MOBILE/TABLET FIT
+   Keep every meeting surface inside the device viewport. */
+html, body, #root { width:100%; max-width:100%; min-width:0; overflow-x:hidden; }
+body { min-width:0; }
+.meeting { width:100%; max-width:100vw; min-width:0; overflow-x:hidden; }
+.meeting-head { min-width:0; }
+.meeting-head > * { min-width:0; }
+.stage { width:100%; max-width:1200px; min-width:0; }
+.main-tile, .thumb, .thumbs { min-width:0; max-width:100%; }
+.thumb { overflow:hidden !important; position:relative; }
+.thumb-video, .thumb-video video { width:100%; height:100%; max-width:100%; object-fit:cover; }
+.meeting-bottom { width:100%; max-width:100%; min-width:0; overflow:hidden; }
+.meeting-controls { width:100%; max-width:1180px; min-width:0; box-sizing:border-box; }
+.meeting-controls .control { min-width:0; max-width:100%; }
+
+@media (orientation:portrait) and (max-width:900px) {
+  .meeting { min-height:100svh; }
+  .stage, .stage.pinned { padding:8px; display:flex; flex-direction:column; gap:8px; }
+  .stage .main-tile, .stage.screen-active .main-tile, .stage.pinned .main-tile {
+    width:100%; min-width:0; max-width:100%; min-height:0; height:auto;
+    aspect-ratio:16/9; flex:0 0 auto;
+  }
+  .thumbs { width:100%; grid-template-columns:repeat(2,minmax(0,1fr)); grid-auto-rows:auto; gap:8px; overflow:hidden; }
+  .thumb { width:100%; height:auto; min-height:92px; aspect-ratio:16/10; padding:5px; }
+  .participant-avatar-fallback { max-width:100%; min-width:0; overflow:hidden; }
+  .participant-avatar-fallback img { width:clamp(42px,15vw,64px); height:clamp(42px,15vw,64px); }
+  .meeting-controls {
+    display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px;
+    padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+  }
+  .meeting-controls .control {
+    width:100%; min-width:0 !important; height:48px; padding:0 4px;
+    border-radius:12px; font-size:11px; display:flex; align-items:center;
+    justify-content:center; gap:4px; overflow:hidden;
+  }
+  .meeting-controls .control > span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .meeting-controls .end-control { grid-column:1/-1; }
+  .audio-note, .host-note { width:100%; max-width:100%; overflow-wrap:anywhere; }
+}
+
+@media (orientation:landscape) and (max-width:1100px) {
+  .stage, .stage.pinned { display:grid; grid-template-columns:minmax(0,1fr) minmax(170px,30vw); gap:8px; padding:8px; min-height:0; }
+  .stage.pinned { display:block; }
+  .stage .main-tile { min-height:0; aspect-ratio:16/9; }
+  .thumbs { min-width:0; grid-auto-rows:minmax(90px,18vh); overflow:hidden; }
+  .thumb { min-width:0; height:100%; overflow:hidden; }
+  .meeting-controls { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:6px; padding:7px 8px; }
+  .meeting-controls .control { min-width:0; height:46px; padding:0 3px; font-size:10px; }
+  .meeting-controls .end-control { grid-column:auto; }
+}
+
+@media (max-width:380px) {
+  .meeting-controls { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+  .meeting-controls .control { height:46px; font-size:10px; }
+  .meeting-controls .end-control { grid-column:1/-1; }
+  .thumb { min-height:82px; }
 }
