@@ -537,3 +537,65 @@ footer{background:#071017!important;color:#718994!important;border-top:1px solid
   cursor: not-allowed;
   filter: saturate(.65);
 }
+
+/* v1.9.3: FAAAAH emote — transparent asset + matching panic animation */
+.interactive-picker-item img[src*="faaah"]{background:transparent!important}
+.participant-emote-effect.emote-faaah img{width:min(86%,170px)!important;max-height:84%!important;filter:drop-shadow(0 0 10px rgba(52,255,190,.55)) drop-shadow(0 8px 12px rgba(0,0,0,.48));animation:faaah-shake .18s ease-in-out 0s 5,faaah-pop 2.3s ease-out both!important;z-index:3}
+.participant-emote-effect.emote-faaah .emote-text{color:#fff;text-shadow:0 2px 0 #145b4e,0 0 14px #49ffd2;animation:faaah-text .48s cubic-bezier(.15,1.8,.35,1) both}
+.participant-emote-effect.emote-faaah .emote-energy{background:radial-gradient(circle,rgba(62,255,204,.58),rgba(20,157,126,.26) 45%,transparent 72%);animation:faaah-energy 1.25s ease-out both}
+.participant-emote-effect.emote-faaah .emote-burst i{background:#b8fff0;box-shadow:0 0 11px #35ffd0}
+.participant-emote-effect.emote-faaah .emote-burst i:nth-child(1){--x:-52px;--y:-35px}.participant-emote-effect.emote-faaah .emote-burst i:nth-child(2){--x:52px;--y:-38px}.participant-emote-effect.emote-faaah .emote-burst i:nth-child(3){--x:-60px;--y:0}.participant-emote-effect.emote-faaah .emote-burst i:nth-child(4){--x:60px;--y:2px}.participant-emote-effect.emote-faaah .emote-burst i:nth-child(5){--x:-38px;--y:48px}.participant-emote-effect.emote-faaah .emote-burst i:nth-child(6){--x:40px;--y:50px}.participant-emote-effect.emote-faaah .emote-burst i:nth-child(7){--x:-8px;--y:-58px}.participant-emote-effect.emote-faaah .emote-burst i:nth-child(8){--x:10px;--y:62px}
+@keyframes faaah-shake{0%,100%{transform:translate(0,0) rotate(0)}25%{transform:translate(-4px,2px) rotate(-2deg)}50%{transform:translate(4px,-2px) rotate(2deg)}75%{transform:translate(-3px,-1px) rotate(-1deg)}}
+@keyframes faaah-pop{0%{opacity:0;transform:scale(.55)}14%{opacity:1;transform:scale(1.08)}28%{transform:scale(.96)}45%{transform:scale(1.02)}100%{opacity:1;transform:scale(1)}}
+@keyframes faaah-text{0%{opacity:0;transform:translateX(-50%) scale(.2) rotate(-8deg)}100%{opacity:1;transform:translateX(-50%) scale(1) rotate(5deg)}}
+@keyframes faaah-energy{0%{opacity:0;transform:scale(.2)}20%{opacity:1}100%{opacity:0;transform:scale(1.9)}}
+@media(max-width:700px){.participant-emote-effect.emote-faaah img{width:84%!important;max-height:82%!important}.participant-emote-effect.emote-faaah .emote-text{font-size:clamp(10px,3.7vw,16px)}}
+
+
+/* v1.9.4 — avatar-sized interactive emotes
+   The transparent emote artwork already contains its own FAAAAH/SHEEESHHH text.
+   Match the emote artwork to the actual avatar footprint instead of scaling it to
+   the whole participant tile. */
+.participant-emote-effect{
+  --emote-size:110px;
+  width:calc(var(--emote-size) * 1.55)!important;
+  height:calc(var(--emote-size) * 1.55)!important;
+  left:50%!important;
+  top:50%!important;
+  right:auto!important;
+  bottom:auto!important;
+  inset:auto!important;
+  transform:translate(-50%,-50%)!important;
+  display:grid!important;
+  place-items:center!important;
+  overflow:visible!important;
+  pointer-events:none!important;
+}
+.participant-emote-effect img,
+.participant-emote-effect.emote-faaah img{
+  width:var(--emote-size)!important;
+  height:var(--emote-size)!important;
+  max-width:var(--emote-size)!important;
+  max-height:var(--emote-size)!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  display:block!important;
+}
+/* Artwork contains its own lettering; never add a second text layer. */
+.participant-emote-effect .emote-text{display:none!important}
+.participant-emote-effect .emote-energy{width:var(--emote-size)!important;height:var(--emote-size)!important}
+.participant-emote-effect .emote-burst{inset:calc((100% - var(--emote-size)) / 2)!important}
+.participant-emote-effect .emote-burst i{width:4px;height:4px}
+
+@media (min-width:701px) and (max-width:1100px){
+  .participant-emote-effect{--emote-size:58px}
+}
+@media (max-width:700px){
+  .participant-emote-effect{--emote-size:clamp(42px,15vw,64px)}
+  .participant-emote-effect img,
+  .participant-emote-effect.emote-faaah img{width:var(--emote-size)!important;height:var(--emote-size)!important;max-width:var(--emote-size)!important;max-height:var(--emote-size)!important}
+  .participant-emote-effect .emote-energy{width:var(--emote-size)!important;height:var(--emote-size)!important}
+}
+@media (max-width:380px){
+  .participant-emote-effect{--emote-size:40px}
+}
