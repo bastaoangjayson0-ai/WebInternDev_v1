@@ -400,3 +400,16 @@
 /* v1.7.6: while an interactive emote is active, replace the default avatar temporarily. */
 .thumb.interactive-hit .participant-avatar-fallback > img{opacity:0;visibility:hidden;transition:opacity .12s ease}
 .thumb.interactive-hit .participant-avatar-fallback > span{position:relative;z-index:95}
+
+
+/* v1.7.7 direct self-hold Interactive Emote */
+.thumb.interactive-target{position:relative;isolation:isolate;overflow:visible;touch-action:none;-webkit-touch-callout:none;user-select:none}
+.thumb.interactive-target[role="button"]{cursor:pointer}
+.thumb.interactive-target .participant-avatar-fallback{position:relative;z-index:2;transition:opacity .12s ease,transform .12s ease}
+.thumb.interactive-target .participant-avatar-fallback.avatar-hidden-for-emote{opacity:0;transform:scale(.88);pointer-events:none}
+.thumb.interactive-target .participant-emote-effect{position:absolute!important;left:50%!important;top:50%!important;inset:auto!important;width:min(148px,82%)!important;height:min(148px,82vw)!important;transform:translate(-50%,-50%)!important;display:grid!important;place-items:center!important;z-index:200!important;pointer-events:none!important;overflow:visible!important}
+.thumb.interactive-target .participant-emote-effect img{width:min(132px,100%)!important;height:auto!important;max-height:132px!important;object-fit:contain!important;animation:sheeeshhh-bob .62s ease-in-out 3!important}
+.thumb.interactive-target .participant-emote-effect .emote-text{top:-12px!important;left:50%;transform:translateX(-50%) rotate(-6deg);white-space:nowrap}
+.emote-burst{position:absolute;inset:-8%;pointer-events:none}.emote-burst i{position:absolute;left:50%;top:50%;width:7px;height:7px;border-radius:50%;background:#c79bff;box-shadow:0 0 12px #a76cff;animation:emote-particle .8s ease-out both}.emote-burst i:nth-child(1){--x:-58px;--y:-45px}.emote-burst i:nth-child(2){--x:56px;--y:-48px;animation-delay:.06s}.emote-burst i:nth-child(3){--x:-68px;--y:4px;animation-delay:.11s}.emote-burst i:nth-child(4){--x:70px;--y:6px;animation-delay:.15s}.emote-burst i:nth-child(5){--x:-34px;--y:56px;animation-delay:.09s}.emote-burst i:nth-child(6){--x:38px;--y:58px;animation-delay:.18s}
+@keyframes emote-particle{0%{opacity:0;transform:translate(-50%,-50%) scale(.2)}18%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) scale(1.35)}}
+@media(max-width:700px){.thumb.interactive-target .participant-emote-effect{width:118px!important;height:118px!important}.thumb.interactive-target .participant-emote-effect img{width:108px!important;max-height:108px!important}}
