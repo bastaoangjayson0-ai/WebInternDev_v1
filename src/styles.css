@@ -1132,4 +1132,264 @@ html,body,#root{min-height:100%;max-width:100%;overflow-x:hidden}
   .stage:not(.pinned) .thumbs{grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-auto-rows:108px!important;gap:8px!important;padding:8px 5px 18px!important}
   .stage:not(.pinned) .thumb{height:108px!important;min-height:108px!important}
 }
-\n\n/* v1.10.3 — restore participant tile visibility while keeping a real scroll viewport.\n   The previous flex/height:0 rules could collapse the gallery on mobile/tablet. */\n.stage:not(.pinned) .thumbs{\n  flex:0 1 320px!important;\n  height:320px!important;\n  min-height:180px!important;\n  max-height:320px!important;\n  overflow-y:auto!important;\n  overflow-x:hidden!important;\n  display:grid!important;\n  align-content:start!important;\n  touch-action:pan-y!important;\n  -webkit-overflow-scrolling:touch!important;\n}\n@media (min-width:801px){\n  .stage:not(.pinned) .thumbs{\n    flex:0 1 650px!important;\n    height:650px!important;\n    min-height:0!important;\n    max-height:650px!important;\n    grid-template-columns:1fr!important;\n    grid-auto-rows:120px!important;\n  }\n}\n@media (min-width:601px) and (max-width:800px){\n  .stage:not(.pinned){height:auto!important;max-height:none!important;overflow:visible!important;}\n  .stage:not(.pinned) .main-tile{min-height:40dvh!important;height:40dvh!important;max-height:420px!important;}\n  .stage:not(.pinned) .thumbs{\n    flex:0 0 300px!important;height:300px!important;min-height:300px!important;max-height:300px!important;\n    grid-template-columns:repeat(3,minmax(0,1fr))!important;\n    grid-auto-rows:96px!important;gap:8px!important;padding:8px 4px 16px!important;\n  }\n  .stage:not(.pinned) .thumb{height:96px!important;min-height:96px!important;}\n}\n@media (max-width:600px){\n  .stage:not(.pinned){height:auto!important;max-height:none!important;min-height:0!important;overflow:visible!important;}\n  .stage:not(.pinned) .main-tile{min-height:38dvh!important;height:38dvh!important;max-height:360px!important;}\n  .stage:not(.pinned) .thumbs{\n    flex:0 0 288px!important;height:288px!important;min-height:288px!important;max-height:288px!important;\n    grid-template-columns:repeat(2,minmax(0,1fr))!important;\n    grid-auto-rows:88px!important;gap:8px!important;padding:8px 4px 16px!important;\n  }\n  .stage:not(.pinned) .thumb{height:88px!important;min-height:88px!important;}\n}\n@media (max-width:380px){\n  .stage:not(.pinned) .main-tile{min-height:34dvh!important;height:34dvh!important;}\n  .stage:not(.pinned) .thumbs{height:260px!important;min-height:260px!important;max-height:260px!important;grid-auto-rows:80px!important;}\n  .stage:not(.pinned) .thumb{height:80px!important;min-height:80px!important;}\n}\n
+
+/* v1.10.3 — restore participant tile visibility while keeping a real scroll viewport.\n   The previous flex/height:0 rules could collapse the gallery on mobile/tablet. */\n.stage:not(.pinned) .thumbs{\n  flex:0 1 320px!important;\n  height:320px!important;\n  min-height:180px!important;\n  max-height:320px!important;\n  overflow-y:auto!important;\n  overflow-x:hidden!important;\n  display:grid!important;\n  align-content:start!important;\n  touch-action:pan-y!important;\n  -webkit-overflow-scrolling:touch!important;\n}\n@media (min-width:801px){\n  .stage:not(.pinned) .thumbs{\n    flex:0 1 650px!important;\n    height:650px!important;\n    min-height:0!important;\n    max-height:650px!important;\n    grid-template-columns:1fr!important;\n    grid-auto-rows:120px!important;\n  }\n}\n@media (min-width:601px) and (max-width:800px){\n  .stage:not(.pinned){height:auto!important;max-height:none!important;overflow:visible!important;}\n  .stage:not(.pinned) .main-tile{min-height:40dvh!important;height:40dvh!important;max-height:420px!important;}\n  .stage:not(.pinned) .thumbs{\n    flex:0 0 300px!important;height:300px!important;min-height:300px!important;max-height:300px!important;\n    grid-template-columns:repeat(3,minmax(0,1fr))!important;\n    grid-auto-rows:96px!important;gap:8px!important;padding:8px 4px 16px!important;\n  }\n  .stage:not(.pinned) .thumb{height:96px!important;min-height:96px!important;}\n}\n@media (max-width:600px){\n  .stage:not(.pinned){height:auto!important;max-height:none!important;min-height:0!important;overflow:visible!important;}\n  .stage:not(.pinned) .main-tile{min-height:38dvh!important;height:38dvh!important;max-height:360px!important;}\n  .stage:not(.pinned) .thumbs{\n    flex:0 0 288px!important;height:288px!important;min-height:288px!important;max-height:288px!important;\n    grid-template-columns:repeat(2,minmax(0,1fr))!important;\n    grid-auto-rows:88px!important;gap:8px!important;padding:8px 4px 16px!important;\n  }\n  .stage:not(.pinned) .thumb{height:88px!important;min-height:88px!important;}\n}\n@media (max-width:380px){\n  .stage:not(.pinned) .main-tile{min-height:34dvh!important;height:34dvh!important;}\n  .stage:not(.pinned) .thumbs{height:260px!important;min-height:260px!important;max-height:260px!important;grid-auto-rows:80px!important;}\n  .stage:not(.pinned) .thumb{height:80px!important;min-height:80px!important;}\n}\n
+/* v1.10.4 — FINAL PARTICIPANT GALLERY FIX
+   The participant gallery is always a bounded scroll viewport on every device.
+   Never let the gallery grow to the height of all participants. */
+.stage:not(.pinned){
+  min-height:0!important;
+  height:calc(100dvh - 190px)!important;
+  max-height:calc(100dvh - 190px)!important;
+  overflow:hidden!important;
+}
+.stage:not(.pinned) .thumbs{
+  box-sizing:border-box!important;
+  min-width:0!important;
+  min-height:0!important;
+  height:100%!important;
+  max-height:none!important;
+  flex:none!important;
+  display:grid!important;
+  align-content:start!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior:contain!important;
+  touch-action:pan-y!important;
+  scrollbar-width:auto!important;
+}
+.stage:not(.pinned) .thumbs::-webkit-scrollbar{width:8px;height:0}
+.stage:not(.pinned) .thumbs::-webkit-scrollbar-thumb{background:#405e6b;border-radius:999px}
+
+/* Desktop: main presentation + independently scrollable participant column. */
+@media (min-width:1101px){
+  .stage:not(.pinned){
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) 260px!important;
+    grid-template-rows:minmax(0,1fr)!important;
+    align-items:stretch!important;
+    height:calc(100dvh - 190px)!important;
+    max-height:calc(100dvh - 190px)!important;
+    overflow:hidden!important;
+  }
+  .stage:not(.pinned) .main-tile{
+    min-height:0!important;
+    height:100%!important;
+    max-height:none!important;
+  }
+  .stage:not(.pinned) .thumbs{
+    height:100%!important;
+    max-height:none!important;
+    min-height:0!important;
+    grid-template-columns:1fr!important;
+    grid-auto-rows:120px!important;
+    gap:10px!important;
+    padding:4px 4px 12px 0!important;
+  }
+  .stage:not(.pinned) .thumb{
+    width:100%!important;
+    height:120px!important;
+    min-height:120px!important;
+  }
+}
+
+/* Tablet: 3 columns, bounded gallery, vertical scrolling inside the gallery. */
+@media (min-width:701px) and (max-width:1100px){
+  .stage:not(.pinned){
+    display:block!important;
+    height:calc(100dvh - 185px)!important;
+    max-height:calc(100dvh - 185px)!important;
+    overflow:hidden!important;
+    padding:12px!important;
+  }
+  .stage:not(.pinned) .main-tile{
+    width:100%!important;
+    height:42dvh!important;
+    min-height:260px!important;
+    max-height:430px!important;
+  }
+  .stage:not(.pinned) .thumbs{
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    grid-auto-flow:row!important;
+    grid-auto-rows:100px!important;
+    height:calc(100% - 42dvh - 14px)!important;
+    min-height:170px!important;
+    max-height:none!important;
+    margin-top:10px!important;
+    padding:6px 4px 14px!important;
+    gap:8px!important;
+  }
+  .stage:not(.pinned) .thumb{height:100px!important;min-height:100px!important}
+}
+
+/* Phone: 2 columns, bounded gallery, vertical finger scrolling. */
+@media (max-width:700px){
+  .stage:not(.pinned){
+    display:block!important;
+    height:calc(100dvh - 178px)!important;
+    max-height:calc(100dvh - 178px)!important;
+    overflow:hidden!important;
+    padding:8px!important;
+  }
+  .stage:not(.pinned) .main-tile{
+    width:100%!important;
+    height:38dvh!important;
+    min-height:220px!important;
+    max-height:340px!important;
+  }
+  .stage:not(.pinned) .thumbs{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-flow:row!important;
+    grid-auto-rows:92px!important;
+    width:100%!important;
+    height:calc(100% - 38dvh - 12px)!important;
+    min-height:150px!important;
+    max-height:none!important;
+    margin-top:8px!important;
+    padding:5px 2px 12px!important;
+    gap:7px!important;
+  }
+  .stage:not(.pinned) .thumb{height:92px!important;min-height:92px!important;width:100%!important}
+}
+@media (max-width:380px){
+  .stage:not(.pinned) .main-tile{height:34dvh!important;min-height:200px!important}
+  .stage:not(.pinned) .thumbs{height:calc(100% - 34dvh - 12px)!important;grid-auto-rows:84px!important}
+  .stage:not(.pinned) .thumb{height:84px!important;min-height:84px!important}
+}
+
+/* Screen sharing: keep the participant strip visible and scrollable too. */
+.stage.screen-active:not(.pinned){
+  overflow:hidden!important;
+}
+@media (min-width:1101px){
+  .stage.screen-active:not(.pinned) .thumbs{
+    display:grid!important;
+    grid-auto-flow:row!important;
+    grid-auto-rows:120px!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+  }
+}
+@media (max-width:1100px){
+  .stage.screen-active:not(.pinned) .thumbs{
+    display:grid!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    touch-action:pan-y!important;
+  }
+}
+
+/* v1.10.5 — REAL ALL-DEVICE PARTICIPANT SCROLL
+   Final override: the participant gallery is always a bounded scroll viewport.
+   Phone/tablet use native vertical touch scrolling; desktop uses a dedicated scrollbar. */
+.stage:not(.pinned){
+  box-sizing:border-box!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+.stage:not(.pinned) .thumbs{
+  box-sizing:border-box!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-width:100%!important;
+  max-height:none!important;
+  overflow-y:scroll!important;
+  overflow-x:hidden!important;
+  overscroll-behavior-y:contain!important;
+  overscroll-behavior-x:none!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;
+  scrollbar-width:auto!important;
+  scrollbar-gutter:stable!important;
+  align-content:start!important;
+}
+.stage:not(.pinned) .thumb{box-sizing:border-box!important;min-width:0!important;max-width:100%!important}
+.stage:not(.pinned) .thumbs::-webkit-scrollbar{width:10px!important;height:0!important}
+.stage:not(.pinned) .thumbs::-webkit-scrollbar-track{background:#101c22!important;border-radius:10px!important}
+.stage:not(.pinned) .thumbs::-webkit-scrollbar-thumb{background:#4a6875!important;border-radius:10px!important;border:2px solid #101c22!important}
+
+/* Desktop: fixed presentation + independently scrolling participant column. */
+@media (min-width:1101px){
+  .stage:not(.pinned){
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) 260px!important;
+    grid-template-rows:minmax(0,1fr)!important;
+    width:min(1200px,100%)!important;
+    height:calc(100dvh - 190px)!important;
+    max-height:calc(100dvh - 190px)!important;
+    padding:20px!important;
+    gap:14px!important;
+  }
+  .stage:not(.pinned) .main-tile{min-width:0!important;min-height:0!important;height:100%!important;max-height:none!important}
+  .stage:not(.pinned) .thumbs{
+    width:260px!important;
+    height:100%!important;
+    grid-template-columns:1fr!important;
+    grid-auto-rows:120px!important;
+    gap:10px!important;
+    padding:4px 4px 12px 0!important;
+  }
+  .stage:not(.pinned) .thumb{width:100%!important;height:120px!important;min-height:120px!important}
+}
+
+/* Tablet: fixed main tile + dedicated vertical participant scroller. */
+@media (min-width:701px) and (max-width:1100px){
+  .stage:not(.pinned){
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-rows:minmax(220px,42dvh) minmax(160px,1fr)!important;
+    width:100%!important;
+    height:calc(100dvh - 185px)!important;
+    max-height:calc(100dvh - 185px)!important;
+    padding:12px!important;
+    gap:10px!important;
+  }
+  .stage:not(.pinned) .main-tile{width:100%!important;height:auto!important;min-height:0!important;max-height:none!important}
+  .stage:not(.pinned) .thumbs{
+    width:100%!important;
+    height:auto!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    grid-auto-flow:row!important;
+    grid-auto-rows:100px!important;
+    gap:8px!important;
+    padding:6px 4px 16px!important;
+  }
+  .stage:not(.pinned) .thumb{height:100px!important;min-height:100px!important}
+}
+
+/* Phone: fixed main tile + dedicated vertical finger scroller. */
+@media (max-width:700px){
+  .stage:not(.pinned){
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-rows:minmax(200px,38dvh) minmax(150px,1fr)!important;
+    width:100%!important;
+    height:calc(100dvh - 178px)!important;
+    max-height:calc(100dvh - 178px)!important;
+    min-height:0!important;
+    padding:8px!important;
+    gap:8px!important;
+  }
+  .stage:not(.pinned) .main-tile{width:100%!important;height:auto!important;min-height:0!important;max-height:none!important}
+  .stage:not(.pinned) .thumbs{
+    width:100%!important;
+    height:auto!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-flow:row!important;
+    grid-auto-rows:92px!important;
+    gap:7px!important;
+    padding:5px 3px 18px!important;
+  }
+  .stage:not(.pinned) .thumb{width:100%!important;height:92px!important;min-height:92px!important}
+}
+@media (max-width:380px){
+  .stage:not(.pinned){grid-template-rows:minmax(190px,34dvh) minmax(140px,1fr)!important}
+  .stage:not(.pinned) .thumbs{grid-auto-rows:84px!important}
+  .stage:not(.pinned) .thumb{height:84px!important;min-height:84px!important}
+}
+
+/* Keep scrolling active during screen sharing too. */
+.stage.screen-active:not(.pinned) .thumbs{overflow-y:scroll!important;overflow-x:hidden!important;touch-action:pan-y!important;-webkit-overflow-scrolling:touch!important}
