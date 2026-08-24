@@ -338,7 +338,15 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        liveRoom.on(RoomEvent.ConnectionStateChanged,(state)=>setConnection(String(state).toLowerCase()));
        if(RoomEvent.ActiveSpeakersChanged) liveRoom.on(RoomEvent.ActiveSpeakersChanged,(speakers)=>{
          if(!mounted.current)return;
-         const ids=(Array.isArray(speakers)?speakers:[]).map(p=>String(p?.identity||'')).filter(Boolean);
+         // Keep both identity and SID so the highlight still works when a
+         // browser/device exposes one identifier but not the other.
+         const ids=[];
+         (Array.isArray(speakers)?speakers:[]).forEach(p=>{
+           const identity=String(p?.identity||'').trim();
+           const sid=String(p?.sid||'').trim();
+           if(identity)ids.push(identity);
+           if(sid)ids.push(`sid:${sid}`);
+         });
          setActiveSpeakerIds(ids);
        });
        liveRoom.on(RoomEvent.ParticipantConnected,(participant)=>{
@@ -740,7 +748,19 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    const pubs=Array.from(participant.videoTrackPublications.values());
    return pubs.find(p=>p.source===source && p.track)?.track||null;
  };
- const allParticipants=[{local:true,participant:liveRoomRef.current?.localParticipant||null,name,role},...participants.map(p=>({local:false,participant:p,name:p.name||p.identity,role:p.metadata?(()=>{try{return JSON.parse(p.metadata).role}catch{return 'user'}})():'user'}))];
+ const localParticipant=liveRoomRef.current?.localParticipant||null;
+ const allParticipants=[{local:true,participant:localParticipant,name,role},...participants.map(p=>({local:false,participant:p,name:p.name||p.identity,role:p.metadata?(()=>{try{return JSON.parse(p.metadata).role}catch{return 'user'}})():'user'}))];
+ // Keep the original participant order as the stable fallback. Active speakers
+ // and active emotes temporarily move to the front, then automatically return
+ // to their original positions when the activity ends.
+ const orderedParticipants=allParticipants.map((p,index)=>{
+   const identity=String(p.participant?.identity||'').trim();
+   const sid=String(p.participant?.sid||'').trim();
+   const targetId=identity||`local-${name}`;
+   const effect=interactiveEffects.find(x=>x.targetId===targetId);
+   const speaking=activeSpeakerIds.includes(targetId)||activeSpeakerIds.includes(sid?`sid:${sid}`:'');
+   return {...p,index,targetId,effect,speaking,priority:(effect?2:0)+(speaking?1:0)};
+ }).sort((a,b)=>b.priority-a.priority||a.index-b.index);
  const screenFromRemote=(isUsableScreenTrack(remoteScreenTrack)?remoteScreenTrack:null) || participants.map(p=>trackForParticipant(p,'screen_share')||trackForParticipant(p,'screenShare')).find(isUsableScreenTrack) || null;
  const mainScreen=isUsableScreenTrack(screenTrack)?screenTrack:screenFromRemote;
  const remoteScreenActive=Boolean(screenFromRemote);
@@ -767,7 +787,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        <div className="reaction-layer" aria-live="polite">{reactions.map((r,i)=><div className="floating-reaction" style={{left:`${8+((i*19+Math.floor((r.seed||0)*31))%82)}%`,animationDelay:`${(i%3)*65}ms`}} key={r.id} title={`${r.name}: ${r.emoji}`}><span className="reaction-glow"/><span className="reaction-ring"/><span className="reaction-particle p1"/><span className="reaction-particle p2"/><span className="reaction-particle p3"/><span className="reaction-emoji">{r.emoji}</span></div>)}</div>
        {showingScreen&&<button type="button" className="screen-fit-button" aria-label={screenFullscreen?'Exit full screen':'Full screen shared screen'} title={screenFullscreen?'Exit full screen':'Full screen'} onClick={toggleScreenFullscreen}><MeetingIcon type={screenFullscreen?'fullscreenExit':'fullscreen'}/></button>}
      </div>
-     <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=>{const targetId=String(p.participant?.identity||`local-${name}`);const effect=interactiveEffects.find(x=>x.targetId===targetId);const speaking=activeSpeakerIds.includes(targetId);return <ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={effect} isSpeaking={speaking}/>})}</div>
+     <div className="thumbs" aria-label="Meeting participants">{orderedParticipants.map((p,i)=><ParticipantTile key={p.participant?.identity||p.participant?.sid||`${p.name}-${p.index}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={p.effect} isSpeaking={p.speaking}/>)}</div>
    </div>
    <div className="remote-audio" aria-hidden="true">{participants.map(p=><RemoteAudio key={p.identity} participant={p}/>)}</div>
    {micError&&<div className="meeting-status-error">Microphone: {micError} <button className="ghost small" onClick={toggleMic}>Try microphone again</button></div>}

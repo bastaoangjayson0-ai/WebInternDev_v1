@@ -724,3 +724,74 @@ footer{background:#071017!important;color:#718994!important;border-top:1px solid
   .thumb.speaker-active::after{left:5px}
   .thumb.emote-active::after{right:5px}
 }
+
+/* v1.9.7 — Google Meet-style active participant priority + 50-person scrolling
+   Active speakers/emotes are temporarily sorted to the front. When activity
+   ends, the stable original order is restored automatically. The participant
+   area itself is scrollable so phones/tablets can reach all 50 participants. */
+.thumbs{
+  min-width:0!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;
+  scrollbar-color:#35505d transparent;
+}
+.thumb{
+  order:0;
+  min-width:0!important;
+  min-height:0!important;
+  transition:border-color .16s ease,box-shadow .16s ease,transform .22s ease,order .22s ease;
+}
+.thumb.speaker-active,
+.thumb.emote-active{
+  transform:translateY(-1px);
+}
+
+/* Desktop: the participant column can scroll through all 50 users. */
+@media(min-width:801px){
+  .stage:not(.pinned) .thumbs{
+    max-height:calc(100vh - 250px);
+    grid-template-columns:1fr;
+    grid-auto-rows:minmax(112px,130px);
+  }
+  .stage.pinned .thumbs{display:none!important}
+}
+
+/* Tablet: keep a readable 3-column participant gallery below the main tile. */
+@media(min-width:701px) and (max-width:1100px){
+  .stage:not(.pinned) .thumbs{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    grid-auto-rows:minmax(105px,18vw)!important;
+    max-height:46vh!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+  }
+}
+
+/* Phones: two columns, vertical scrolling, no participant is hidden after #10. */
+@media(max-width:700px){
+  .stage:not(.pinned) .thumbs{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-flow:row!important;
+    grid-auto-rows:minmax(108px,26vw)!important;
+    width:100%!important;
+    max-height:52vh!important;
+    height:auto!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    padding:8px 2px 12px!important;
+    gap:8px!important;
+  }
+  .thumb{width:100%!important;min-width:0!important;}
+}
+
+@media(max-width:420px){
+  .stage:not(.pinned) .thumbs{
+    grid-auto-rows:108px!important;
+    max-height:50vh!important;
+  }
+}
