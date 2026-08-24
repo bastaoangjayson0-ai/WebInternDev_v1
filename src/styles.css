@@ -554,3 +554,56 @@
   .thumb.interactive-target .participant-emote-effect img{max-width:58%!important;max-height:58%!important}
   .thumb.interactive-target .participant-emote-effect .emote-text{top:6%!important;font-size:9px!important}
 }
+
+/* v1.8.4: mobile/tablet viewport fit — controls and meeting layout never require horizontal page scrolling. */
+html,body,#root{max-width:100%;overflow-x:hidden}
+.meeting{overflow-x:hidden}
+.meeting-bottom{width:100%;max-width:100%;overflow:visible}
+.meeting-controls{width:min(1180px,100%);max-width:100%;margin:0 auto;align-items:stretch}
+.meeting-controls .control{white-space:nowrap}
+.thumbs{min-width:0}
+
+@media (min-width:701px) and (max-width:1100px){
+  .stage,.stage.pinned{display:block;width:100%;min-height:0;padding:12px}
+  .stage .main-tile,.stage.screen-active .main-tile,.stage.pinned .main-tile{
+    width:100%;height:auto;min-height:0;max-height:none;aspect-ratio:16/9;margin:0 auto;border-radius:16px
+  }
+  .stage.screen-active .main-tile,.stage.pinned .main-tile{aspect-ratio:var(--screen-aspect,16/9)}
+  .thumbs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:120px;gap:10px;margin-top:10px;overflow:visible}
+  .thumb{min-width:0;width:100%;height:120px}
+  .meeting-controls{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;padding:10px 12px}
+  .meeting-controls .control{width:100%;min-width:0;height:48px;padding:0 8px;font-size:12px}
+}
+
+@media (max-width:700px){
+  .meeting-head{padding-inline:12px}
+  .stage,.stage.pinned{display:block;width:100%;min-height:0;padding:8px}
+  .stage .main-tile,.stage.screen-active .main-tile,.stage.pinned .main-tile{
+    width:100%;height:auto;min-height:0;max-height:none;aspect-ratio:16/9;margin:0 auto;border-radius:14px
+  }
+  .stage.screen-active .main-tile,.stage.pinned .main-tile{aspect-ratio:var(--screen-aspect,16/9)}
+  .thumbs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:100px;gap:8px;margin-top:8px;overflow:visible;padding:0}
+  .thumb{min-width:0;width:100%;height:100px;border-radius:12px;padding:6px}
+  .thumb img{width:48px;height:48px}
+  .thumb-name,.participant-avatar-fallback span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .meeting-controls{
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;width:100%;padding:10px 8px 8px;overflow:visible
+  }
+  .meeting-controls .control,.meeting-controls .end-control{
+    width:100%;min-width:0!important;height:48px;padding:0 4px;border-radius:12px;font-size:11px;display:flex;align-items:center;justify-content:center;gap:4px
+  }
+  .meeting-controls .meeting-symbol{font-size:17px;line-height:1}
+  .meeting-controls .end-control{grid-column:1/-1}
+  .audio-note{max-width:100%;padding:0 12px;line-height:1.35}
+  .host-note{padding:0 12px}
+}
+
+@media (max-width:380px){
+  .stage,.stage.pinned{padding:6px}
+  .thumbs{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:88px;gap:6px}
+  .thumb{height:88px}
+  .thumb img{width:40px;height:40px}
+  .meeting-controls{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding-inline:6px}
+  .meeting-controls .control,.meeting-controls .end-control{height:46px;font-size:10px}
+  .meeting-controls .end-control{grid-column:1/-1}
+}
