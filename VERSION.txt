@@ -1,1 +1,1 @@
-WebInternDev v1.6.9 — Meeting Control Animation
+WebInternDev v1.7.1 - fixed interactive emote selection, compact reaction burst effects, mobile user reaction support
