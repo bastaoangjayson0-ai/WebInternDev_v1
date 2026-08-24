@@ -520,3 +520,12 @@ footer{background:#071017!important;color:#718994!important;border-top:1px solid
 @media(max-width:480px){
  .brand img{width:132px!important;height:36px!important}.hero-logo{width:92%!important;max-height:105px}.hero-card{background:#0d1b23!important}
 }
+
+/* v1.9.0: reliable meeting controls + synchronized host pin state */
+.meeting-bottom{overflow:visible!important}
+.meeting-controls{position:relative;z-index:20}
+.meeting-controls button,.reaction-control-wrap,.interactive-control-wrap{pointer-events:auto!important}
+.reaction-picker,.interactive-picker{pointer-events:auto!important;touch-action:manipulation}
+.control{cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
+.control:disabled{cursor:not-allowed}
+.stage.pinned{transition:all .22s ease}

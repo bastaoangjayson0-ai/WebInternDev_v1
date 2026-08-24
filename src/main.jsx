@@ -405,6 +405,13 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
              return;
            }
            // Accept reactions with or without a LiveKit topic for compatibility.
+           if(msg?.type==='pin_state'){
+             const isPinned=Boolean(msg.pinned);
+             setPinned(isPinned);
+             const hostName=msg.hostName || participant?.name || participant?.identity || 'Host';
+             setToast?.(isPinned ? `${hostName} pinned the shared screen for everyone.` : `${hostName} unpinned the shared screen for everyone.`);
+             return;
+           }
            if(msg?.type==='reaction' && msg.emoji){
              const id=msg.id||crypto.randomUUID();
              setReactions(r=>r.some(x=>x.id===id)?r:r.concat({id,emoji:msg.emoji,name:participant?.name||participant?.identity||'Participant',seed:msg.seed||Math.random()}));
@@ -602,16 +609,37 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  };
  const sendInteractiveEmote=async()=>{
    const r=liveRoomRef.current;
-   const localId=String(r?.localParticipant?.identity||`local-${name}`);
+   if(!r?.localParticipant || r.state!=='connected'){
+     setToast?.('Emote is waiting for the meeting connection.');
+     return;
+   }
+   const localId=String(r.localParticipant.identity||`local-${name}`);
    const id=crypto.randomUUID();
    const item={id,targetId:localId,targetName:name||'Participant',kind:'sheeeshhh'};
    setInteractiveEffects(list=>list.concat(item));
-   setInteractivePicker(false);
    playSheeeshhhSound();
    setTimeout(()=>setInteractiveEffects(list=>list.filter(x=>x.id!==id)),2600);
-   if(!r?.localParticipant)return;
    const payload=new TextEncoder().encode(JSON.stringify({type:'interactive_emote',id,targetId:localId,targetName:name||'Participant',kind:'sheeeshhh'}));
-   try{await r.localParticipant.publishData(payload,{reliable:true,topic:'interactive-emote'});}catch(e){console.warn('Interactive emote broadcast failed',e);}
+   try{
+     await r.localParticipant.publishData(payload,{reliable:true,topic:'interactive-emote'});
+   }catch(firstError){
+     try{await r.localParticipant.publishData(payload,{reliable:true});}
+     catch(secondError){console.warn('Interactive emote broadcast failed',firstError,secondError);setToast?.('SHEEESHHH played here, but could not be sent to everyone.');}
+   }
+ };
+ const broadcastPinState=async(nextPinned)=>{
+   const r=liveRoomRef.current;
+   setPinned(nextPinned);
+   const hostName=name||'Host';
+   setToast?.(nextPinned ? 'Shared screen pinned for everyone.' : 'Shared screen unpinned for everyone.');
+   if(!r?.localParticipant || r.state!=='connected') return;
+   const payload=new TextEncoder().encode(JSON.stringify({type:'pin_state',pinned:Boolean(nextPinned),hostName}));
+   try{
+     await r.localParticipant.publishData(payload,{reliable:true,topic:'meeting-state'});
+   }catch(firstError){
+     try{await r.localParticipant.publishData(payload,{reliable:true});}
+     catch(secondError){console.warn('Pin state broadcast failed:',firstError,secondError);setToast?.('Pin changed on your screen, but could not be synchronized to everyone.');}
+   }
  };
  const REACTIONS=['😀','😂','😍','😎','👏','👍','❤️','🔥','🎉','😮'];
  const sendReaction=async(emoji)=>{
@@ -694,7 +722,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        <div className="reaction-layer" aria-live="polite">{reactions.map((r,i)=><div className="floating-reaction" style={{left:`${8+((i*19+Math.floor((r.seed||0)*31))%82)}%`,animationDelay:`${(i%3)*65}ms`}} key={r.id} title={`${r.name}: ${r.emoji}`}><span className="reaction-glow"/><span className="reaction-ring"/><span className="reaction-particle p1"/><span className="reaction-particle p2"/><span className="reaction-particle p3"/><span className="reaction-emoji">{r.emoji}</span></div>)}</div>
        {showingScreen&&<button type="button" className="screen-fit-button" aria-label={screenFullscreen?'Exit full screen':'Full screen shared screen'} title={screenFullscreen?'Exit full screen':'Full screen'} onClick={toggleScreenFullscreen}><MeetingIcon type={screenFullscreen?'fullscreenExit':'fullscreen'}/></button>}
      </div>
-     <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=>{const targetId=String(p.participant?.identity||`local-${name}`);const effect=interactiveEffects.find(x=>x.targetId===targetId);return <ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={effect} canInteract={p.local} onHold={sendInteractiveEmote}/>})}</div>
+     <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=>{const targetId=String(p.participant?.identity||`local-${name}`);const effect=interactiveEffects.find(x=>x.targetId===targetId);return <ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={effect}/>})}</div>
    </div>
    <div className="remote-audio" aria-hidden="true">{participants.map(p=><RemoteAudio key={p.identity} participant={p}/>)}</div>
    {micError&&<div className="meeting-status-error">Microphone: {micError} <button className="ghost small" onClick={toggleMic}>Try microphone again</button></div>}
@@ -705,10 +733,10 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        <button aria-label={camera?'Turn camera off':'Turn camera on'} title={camera?'Turn camera off':'Turn camera on'} className={camera?'control active is-camera':'control is-camera'} onClick={toggleCamera}><span className="meeting-symbol"><MeetingIcon type={camera?'camera':'cameraOff'}/></span><span>Camera</span></button>
        {role==='host'&&<>
          <button aria-label={sharing?'Stop sharing screen':'Share screen'} title={sharing?'Stop sharing screen':'Share screen'} className={sharing?'control active is-sharing':'control is-sharing'} onClick={toggleScreen}><span className="meeting-symbol"><MeetingIcon type={sharing?'stopScreen':'screen'}/></span><span>{sharing?'Stop share':'Share'}</span></button>
-         <button aria-label={pinned?'Unpin screen':'Pin screen'} title={pinned?'Unpin screen':'Pin screen'} disabled={!showingScreen} className={pinned?'control active':'control'} onClick={()=>setPinned(!pinned)}><span className="meeting-symbol"><MeetingIcon type="pin"/></span><span>{pinned?'Unpin':'Pin'}</span></button>
+         <button aria-label={pinned?'Unpin screen for everyone':'Pin screen for everyone'} title={pinned?'Unpin screen for everyone':'Pin screen for everyone'} disabled={!showingScreen} className={pinned?'control active':'control'} onClick={()=>broadcastPinState(!pinned)}><span className="meeting-symbol"><MeetingIcon type="pin"/></span><span>{pinned?'Unpin':'Pin'}</span></button>
        </>}
        <div className="reaction-control-wrap"><button aria-label="Send reaction" title="Reactions" className={reactionPicker?'control active react-open':'control react-open'} onClick={()=>{setReactionPicker(v=>!v);setInteractivePicker(false)}}><span className="meeting-symbol"><MeetingIcon type="react"/></span><span>React</span></button>{reactionPicker&&<div className="reaction-picker">{REACTIONS.map(emoji=><button type="button" key={emoji} onClick={()=>sendReaction(emoji)} aria-label={`Send ${emoji}`}>{emoji}</button>)}</div>}</div>
-       <div className="interactive-control-wrap"><button aria-label="Open Emote" title="Emote" className={interactivePicker?'control active interactive-open':'control interactive-open'} onClick={()=>{setInteractivePicker(v=>!v);setReactionPicker(false)}}><span className="meeting-symbol interactive-selected-icon"><img src={selectedInteractive.image} alt=""/></span><span>Emote</span></button>{interactivePicker&&<div className="interactive-picker" role="dialog" aria-label="Interactive Emote"><div className="interactive-picker-head"><b>Interactive Emote</b><button type="button" onClick={()=>setInteractivePicker(false)} aria-label="Close emote selection">×</button></div><button type="button" className="interactive-picker-item selected" onClick={sendInteractiveEmote}><img src={sheeeshhhEmote} alt="SHEEESHHH"/><strong>SHEEESHHH!</strong><small>Tap to play • Hold your tile</small></button><p className="interactive-picker-hint">SHEEESHHH includes the image, effects and sound. Hold your own participant tile to play it.</p></div>}</div>
+       <div className="interactive-control-wrap"><button type="button" aria-label="Play SHEEESHHH emote" title="Play SHEEESHHH" className="control interactive-open" onClick={(e)=>{e.stopPropagation();sendInteractiveEmote()}}><span className="meeting-symbol interactive-selected-icon"><img src={sheeeshhhEmote} alt="SHEEESHHH"/></span><span>Emote</span></button></div>
        <button aria-label="Open chat" title="Chat" className="control" onClick={()=>document.getElementById('chat-panel')?.classList.toggle('open')}><span className="meeting-symbol"><MeetingIcon type="chat"/></span><span>Chat</span></button>
        <button aria-label="Open participants" title="Participants" className="control" onClick={()=>document.getElementById('participants-panel')?.classList.toggle('open')}><span className="meeting-symbol"><MeetingIcon type="people"/></span><span>People</span></button>
        {role==='host'?<button aria-label="End meeting" title="End meeting" className="danger control end-control" onClick={onEnd}><span className="meeting-symbol"><MeetingIcon type="end"/></span><span>End</span></button>:<button aria-label="Leave meeting" title="Leave meeting" className="danger control end-control" onClick={onLeave}><span className="meeting-symbol"><MeetingIcon type="leave"/></span><span>Leave</span></button>}
@@ -754,21 +782,13 @@ function isActiveCameraPublication(publication){
  if(media?.muted===true)return false;
  return true;
 }
-function ParticipantTile({item,avatar,localCameraEnabled,interactiveEffect,canInteract,onHold}){
+function ParticipantTile({item,avatar,localCameraEnabled,interactiveEffect}){
  const publication=item.participant?Array.from(item.participant.videoTrackPublications?.values?.()||[]).find(p=>p.source==='camera'&&isActiveCameraPublication(p))||null:null;
  const showVideo=item.local ? Boolean(localCameraEnabled)&&Boolean(publication) : Boolean(publication);
  const videoTrack=showVideo?publication.track:null;
- const holdTimer=useRef(null);
- const holdStartedAt=useRef(0);
- const firedRef=useRef(false);
- const clearHold=()=>{if(holdTimer.current){clearTimeout(holdTimer.current);holdTimer.current=null;}};
- const trigger=()=>{if(!canInteract||firedRef.current)return;firedRef.current=true;clearHold();onHold?.();setTimeout(()=>{firedRef.current=false},900)};
- const startHold=(e)=>{if(!canInteract)return;if(e?.pointerType==='mouse'&&e.button!==0)return;firedRef.current=false;holdStartedAt.current=Date.now();clearHold();holdTimer.current=setTimeout(trigger,360)};
- const stopHold=()=>{if(!canInteract)return;const elapsed=Date.now()-holdStartedAt.current;clearHold();if(!firedRef.current&&elapsed>=320)trigger()};
- useEffect(()=>()=>clearHold(),[]);
- const sheeshEffect=interactiveEffect?.kind==='sheeeshhh'?<div className="participant-emote-effect" aria-label={`${interactiveEffect.targetName} SHEEESHHH`}><div className="emote-energy"/><div className="emote-burst"><i/><i/><i/><i/><i/><i/></div><div className="emote-text">SHEEESHHH!</div><img src={sheeeshhhEmote} alt=""/></div>:null;
+  const sheeshEffect=interactiveEffect?.kind==='sheeeshhh'?<div className="participant-emote-effect" aria-label={`${interactiveEffect.targetName} SHEEESHHH`}><div className="emote-energy"/><div className="emote-burst"><i/><i/><i/><i/><i/><i/></div><div className="emote-text">SHEEESHHH!</div><img src={sheeeshhhEmote} alt=""/></div>:null;
  const label=<span className="thumb-name">{item.name}{item.role==='host'?' • Host':item.role==='admin'?' • Admin':''}</span>;
- return <div className={`thumb interactive-target ${interactiveEffect?'interactive-hit':''}`} onPointerDown={startHold} onPointerUp={stopHold} onPointerCancel={clearHold} onPointerLeave={clearHold} onContextMenu={e=>{if(canInteract){e.preventDefault();trigger()}}} role={canInteract?'button':undefined} aria-label={canInteract?'Hold your tile to play SHEEESHHH':undefined}>
+ return <div className={`thumb ${interactiveEffect?'interactive-hit':''}`} aria-label={item.name}>
    {videoTrack?<><LiveVideo track={videoTrack} className="thumb-video" label={item.name}/>{label}</>:<><div className={`participant-avatar-fallback ${interactiveEffect?'avatar-hidden-for-emote':''}`}><img src={avatar} alt=""/>{label}</div></>}
    {sheeshEffect}
  </div>
