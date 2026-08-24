@@ -3,6 +3,8 @@ import {createRoot} from 'react-dom/client';
 import './styles.css';
 import logo from './assets/logo.jfif';
 import avatar from './assets/avatar.jpg';
+import sheeshImage from './assets/sheesh.png';
+import sheeshSound from './assets/sheesh.mp3';
 import {dbList,dbInsert,dbUpdate,dbUpsert,dbDelete,supabaseConfig,supabase,checkSupabaseSetup} from './supabase';
 
 const DEFAULTS={admin:{name:'Bastaoang Jayson A',password:'webinternDEV'},hostPassword:'BSIT',userPassword:'CRT-NEUST-GSC'};
@@ -231,6 +233,10 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const [micError,setMicError]=useState('');
  const [chatReady,setChatReady]=useState(false);
  const [chatError,setChatError]=useState('');
+ const [interactiveTarget,setInteractiveTarget]=useState(null);
+ const [activeEmotes,setActiveEmotes]=useState({});
+ const holdTimerRef=useRef(null);
+ const audioRef=useRef(null);
  const liveRoomRef=useRef(null);
  const chatEndRef=useRef(null);
  const seenChatIdsRef=useRef(new Set());
@@ -342,6 +348,13 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
            const msg=JSON.parse(text);
            if(topic==='system' && msg?.type==='admin_joining'){
              setToast?.(`Admin ${msg.name || 'Admin'} is joining the meeting.`);
+             return;
+           }
+           if(msg?.type==='interactive_emote' && msg?.targetId && msg?.emote==='sheesh') {
+             // Sender already played the effect locally; prevent duplicate/echo playback.
+             if(participant?.identity!==liveRoom.localParticipant?.identity){
+               triggerInteractiveEmote(msg.targetId,false);
+             }
              return;
            }
            if(topic && topic!=='chat') return;
@@ -534,6 +547,32 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
      setToast?.(`Chat message could not be sent: ${err?.message || 'check the meeting connection.'}`);
    }
  };
+ const triggerInteractiveEmote=(targetId,playSound=true)=>{
+   const eventId=`${targetId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+   setActiveEmotes(prev=>({...prev,[targetId]:eventId}));
+   if(playSound){
+     try{
+       if(audioRef.current){audioRef.current.pause();audioRef.current.currentTime=0;audioRef.current.play().catch(()=>{});}
+     }catch{}
+   }
+   window.setTimeout(()=>setActiveEmotes(prev=>{const next={...prev}; if(next[targetId]===eventId) delete next[targetId]; return next;}),2300);
+ };
+ const openInteractiveTarget=(item)=>{
+   if(item.local) return; // Never allow selecting yourself.
+   setInteractiveTarget({id:item.participant?.identity,name:item.name});
+ };
+ const startHold=(item)=>{if(item.local)return; window.clearTimeout(holdTimerRef.current); holdTimerRef.current=window.setTimeout(()=>openInteractiveTarget(item),550);};
+ const cancelHold=()=>window.clearTimeout(holdTimerRef.current);
+ const sendSheesh=async()=>{
+   const targetId=interactiveTarget?.id;
+   if(!targetId)return;
+   triggerInteractiveEmote(targetId,true);
+   setInteractiveTarget(null);
+   try{
+     const bytes=new TextEncoder().encode(JSON.stringify({type:'interactive_emote',emote:'sheesh',targetId}));
+     await liveRoomRef.current?.localParticipant?.publishData(bytes,{reliable:true,topic:'interactive-emote'});
+   }catch(e){console.warn('Interactive emote broadcast failed',e);}
+ };
  const trackForParticipant=(participant,source)=>{
    if(!participant)return null;
    const pubs=Array.from(participant.videoTrackPublications.values());
@@ -554,8 +593,9 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        </div>}
        {(sharing||remoteScreenActive)&&<span className="share-label">🖥️ {screenTrack?`${name} is sharing screen`:'Host is sharing screen'}</span>}
      </div>
-     <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=><ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar}/>)}</div>
+     <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=><ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar} activeEmote={activeEmotes[p.participant?.identity]} onHoldStart={()=>startHold(p)} onHoldEnd={cancelHold}/>)}</div>
    </div>
+   <audio ref={audioRef} src={sheeshSound} preload="auto" />
    <div className="remote-audio" aria-hidden="true">{participants.map(p=><RemoteAudio key={p.identity} participant={p}/>)}</div>
    {micError&&<div className="meeting-status-error">Microphone: {micError} <button className="ghost small" onClick={toggleMic}>Try microphone again</button></div>}
    <div className="audio-note">Remote participant audio playback is set to 100%. You can also use your phone/computer volume buttons.</div>
@@ -573,6 +613,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
      </div>
      {role==='host'&&<div className="host-note">Host controls: screen share + pin/unpin. Click Share to use your browser's chooser: select an entire screen, an open window, or a browser tab. You can share a PDF, PowerPoint, Excel sheet, Word file, website, or any other content visible in the selected window/tab. System audio is offered when the browser supports it.</div>}
    </div>
+   {interactiveTarget&&<div className="interactive-backdrop" onClick={()=>setInteractiveTarget(null)}><div className="interactive-panel" onClick={e=>e.stopPropagation()}><div className="interactive-title">Interactive Emote</div><button className="sheesh-choice" onClick={sendSheesh}><img src={sheeshImage}/><span>SHEEESHHH!</span></button><small>Send to {interactiveTarget.name}</small></div></div>}
    <aside id="chat-panel" className="meeting-side-panel"><div className="side-head"><b>Chat</b><button onClick={()=>document.getElementById('chat-panel')?.classList.remove('open')}>×</button></div><div className="chat-list">{chat.length?chat.map(m=><div className={m.local?'chat-msg local':'chat-msg'} key={m.id}><b>{m.name}</b><span>{m.text}</span></div>):<p className="muted">{chatReady?'No messages yet.':'Connecting chat…'}</p>}<div ref={chatEndRef}/></div>{chatError&&<div className="chat-error">{chatError}</div>}<form className="chat-form" onSubmit={sendChat}><input value={message} onChange={e=>setMessage(e.target.value)} placeholder={chatReady?'Type a message…':'Connecting chat…'} disabled={!chatReady}/><button className="primary" type="submit" disabled={!chatReady||!message.trim()}>Send</button></form></aside>
    <aside id="participants-panel" className="meeting-side-panel participants-panel"><div className="side-head"><b>Participants ({participants.length+1})</b><button onClick={()=>document.getElementById('participants-panel')?.classList.remove('open')}>×</button></div><div className="participant-list"><div className="participant-row"><img src={avatar}/><span>{name} <small>• {role}</small></span></div>{participants.map(p=><div className="participant-row" key={p.identity}><img src={avatar}/><span>{p.name||p.identity}</span></div>)}</div></aside>
  </section>
@@ -604,6 +645,15 @@ function AudioTrack({track}){
  return <div ref={ref} aria-hidden="true"/>;
 }
 function LiveVideo({track,className,label,onAspectRatio}){const ref=useRef(null);useEffect(()=>{if(!track||!ref.current)return;const el=track.attach();el.className=className||'';el.autoplay=true;el.playsInline=true;ref.current.innerHTML='';ref.current.appendChild(el);const updateAspect=()=>{if(el.videoWidth&&el.videoHeight&&onAspectRatio)onAspectRatio(el.videoWidth/el.videoHeight)};el.addEventListener?.('loadedmetadata',updateAspect);updateAspect();return()=>{el.removeEventListener?.('loadedmetadata',updateAspect);try{track.detach(el);el.remove()}catch{}}},[track,className,onAspectRatio]);return <div ref={ref} className="live-video-wrap" aria-label={label}/> }
-function ParticipantTile({item,avatar}){const videoTrack=item.participant?Array.from(item.participant.videoTrackPublications?.values?.()||[]).find(p=>p.source==='camera'&&p.track)?.track||null:null;return <div className="thumb">{videoTrack?<LiveVideo track={videoTrack} className="thumb-video" label={item.name}/>:<img src={avatar}/>}<span>{item.name}{item.role==='host'?' • Host':''}</span></div>}
+function ParticipantTile({item,avatar,activeEmote,onHoldStart,onHoldEnd}){
+ const videoTrack=item.participant?Array.from(item.participant.videoTrackPublications?.values?.()||[]).find(p=>p.source==='camera'&&p.track)?.track||null:null;
+ return <div className={`thumb ${activeEmote?'emote-active':''}`} onPointerDown={onHoldStart} onPointerUp={onHoldEnd} onPointerCancel={onHoldEnd} onPointerLeave={onHoldEnd}>
+   <div className="participant-avatar-anchor">
+    {videoTrack?<LiveVideo track={videoTrack} className="thumb-video" label={item.name}/>:<img className="participant-avatar" src={avatar}/>}
+    {activeEmote&&<div key={activeEmote} className="avatar-emote"><div className="emote-burst"></div><img src={sheeshImage}/><b>SHEEESHHH!</b></div>}
+   </div>
+   <span>{item.name}{item.role==='host'?' • Host':''}</span>
+ </div>
+}
 
 createRoot(document.getElementById('root')).render(<App/>);
