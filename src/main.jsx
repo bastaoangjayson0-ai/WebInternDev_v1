@@ -262,6 +262,8 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const [reactions,setReactions]=useState([]);
  const [interactiveMenu,setInteractiveMenu]=useState(null);
  const [interactiveEffects,setInteractiveEffects]=useState([]);
+ const [interactivePicker,setInteractivePicker]=useState(false);
+ const [selectedInteractiveEmote,setSelectedInteractiveEmote]=useState('sheeeshhh');
  const liveRoomRef=useRef(null);
  const chatEndRef=useRef(null);
  const seenChatIdsRef=useRef(new Set());
@@ -633,6 +635,13 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    }
  };
  const REACTIONS=['😀','😂','😍','😎','👏','👍','❤️','🔥','🎉','😮'];
+ const INTERACTIVE_EMOTES=[
+   {kind:'sheeeshhh',label:'SHEEESHHH',image:sheeeshhhEmote,available:true},
+   {kind:'slap',label:'Slap',emoji:'🖐️',available:true},
+   {kind:'future-1',label:'Add emote later',emoji:'＋',available:false},
+   {kind:'future-2',label:'Add emote later',emoji:'＋',available:false}
+ ];
+ const selectedInteractive=INTERACTIVE_EMOTES.find(x=>x.kind===selectedInteractiveEmote)||INTERACTIVE_EMOTES[0];
  const sendChat=async(e)=>{
    e?.preventDefault();
    const text=message.trim();
@@ -695,7 +704,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        <div className="reaction-layer" aria-live="polite">{reactions.map((r,i)=><div className="floating-reaction" style={{left:`${8+((i*19+Math.floor((r.seed||0)*31))%82)}%`,animationDelay:`${(i%3)*65}ms`}} key={r.id} title={`${r.name}: ${r.emoji}`}><span className="reaction-glow"/><span className="reaction-ring"/><span className="reaction-particle p1"/><span className="reaction-particle p2"/><span className="reaction-particle p3"/><span className="reaction-emoji">{r.emoji}</span></div>)}</div>
        {showingScreen&&<button type="button" className="screen-fit-button" aria-label={screenFullscreen?'Exit full screen':'Full screen shared screen'} title={screenFullscreen?'Exit full screen':'Full screen'} onClick={toggleScreenFullscreen}><MeetingIcon type={screenFullscreen?'fullscreenExit':'fullscreen'}/></button>}
      </div>
-     <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=>{const target={id:p.participant?.identity||`local-${name}`,name:p.name,local:Boolean(p.local)};const effect=interactiveEffects.find(x=>x.targetId===String(target.id));return <ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={effect} interactiveMenu={interactiveMenu?.id===target.id} canInteract={p.local} onHold={()=>p.local&&sendInteractiveEmote(target,'sheeeshhh')} onEmote={(kind)=>p.local&&sendInteractiveEmote(target,kind)} onCloseMenu={()=>setInteractiveMenu(null)}/>})}</div>
+     <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=>{const target={id:p.participant?.identity||`local-${name}`,name:p.name,local:Boolean(p.local)};const effect=interactiveEffects.find(x=>x.targetId===String(target.id));return <ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={effect} interactiveMenu={interactiveMenu?.id===target.id} canInteract={p.local} onHold={()=>p.local&&sendInteractiveEmote(target,selectedInteractiveEmote)} onEmote={(kind)=>p.local&&sendInteractiveEmote(target,kind)} onCloseMenu={()=>setInteractiveMenu(null)}/>})}</div>
    </div>
    <div className="remote-audio" aria-hidden="true">{participants.map(p=><RemoteAudio key={p.identity} participant={p}/>)}</div>
    {micError&&<div className="meeting-status-error">Microphone: {micError} <button className="ghost small" onClick={toggleMic}>Try microphone again</button></div>}
@@ -709,6 +718,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
          <button aria-label={pinned?'Unpin screen':'Pin screen'} title={pinned?'Unpin screen':'Pin screen'} disabled={!showingScreen} className={pinned?'control active':'control'} onClick={()=>setPinned(!pinned)}><span className="meeting-symbol"><MeetingIcon type="pin"/></span><span>{pinned?'Unpin':'Pin'}</span></button>
        </>}
        <div className="reaction-control-wrap"><button aria-label="Send reaction" title="Reactions" className={reactionPicker?'control active react-open':'control react-open'} onClick={()=>setReactionPicker(v=>!v)}><span className="meeting-symbol"><MeetingIcon type="react"/></span><span>React</span></button>{reactionPicker&&<div className="reaction-picker">{REACTIONS.map(emoji=><button type="button" key={emoji} onClick={()=>sendReaction(emoji)} aria-label={`Send ${emoji}`}>{emoji}</button>)}</div>}</div>
+       <div className="interactive-control-wrap"><button aria-label="Choose interactive emote" title="Interactive Emote" className={interactivePicker?'control active interactive-open':'control interactive-open'} onClick={()=>setInteractivePicker(v=>!v)}><span className="meeting-symbol">{selectedInteractive?.emoji||'✨'}</span><span>Emote</span></button>{interactivePicker&&<div className="interactive-picker" role="dialog" aria-label="Interactive Emote selection"><div className="interactive-picker-head"><b>Interactive Emote</b><button type="button" onClick={()=>setInteractivePicker(false)} aria-label="Close emote selection">×</button></div><p>Select an emote, then hold your own participant tile to play it.</p><div className="interactive-picker-grid">{INTERACTIVE_EMOTES.map(emote=><button type="button" key={emote.kind} className={`interactive-picker-item ${selectedInteractiveEmote===emote.kind?'selected':''} ${!emote.available?'disabled':''}`} disabled={!emote.available} onClick={()=>{setSelectedInteractiveEmote(emote.kind);setInteractivePicker(false)}}>{emote.image?<img src={emote.image} alt=""/>:<span className="interactive-picker-emoji">{emote.emoji}</span>}<strong>{emote.label}</strong>{selectedInteractiveEmote===emote.kind&&<small>Selected</small>}</button>)}</div><small className="interactive-picker-hint">More emotes can be added here later.</small></div>}</div>
        <button aria-label="Open chat" title="Chat" className="control" onClick={()=>document.getElementById('chat-panel')?.classList.toggle('open')}><span className="meeting-symbol"><MeetingIcon type="chat"/></span><span>Chat</span></button>
        <button aria-label="Open participants" title="Participants" className="control" onClick={()=>document.getElementById('participants-panel')?.classList.toggle('open')}><span className="meeting-symbol"><MeetingIcon type="people"/></span><span>People</span></button>
        {role==='host'?<button aria-label="End meeting" title="End meeting" className="danger control end-control" onClick={onEnd}><span className="meeting-symbol"><MeetingIcon type="end"/></span><span>End</span></button>:<button aria-label="Leave meeting" title="Leave meeting" className="danger control end-control" onClick={onLeave}><span className="meeting-symbol"><MeetingIcon type="leave"/></span><span>Leave</span></button>}
