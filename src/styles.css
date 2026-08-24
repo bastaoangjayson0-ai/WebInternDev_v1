@@ -1014,3 +1014,121 @@ footer{background:#071017!important;color:#718994!important;border-top:1px solid
     grid-auto-rows:100px!important;
   }
 }
+
+/* v1.10.1 — hard-fix touch scrolling: the participant gallery is a flex child
+   with a zero flex-basis so the browser has a definite scroll viewport. */
+.stage:not(.pinned){
+  min-height:0!important;
+  overflow:hidden!important;
+}
+.stage:not(.pinned) .thumbs{
+  box-sizing:border-box!important;
+  min-height:0!important;
+  height:0!important;
+  flex:1 1 0!important;
+  overflow-y:scroll!important;
+  overflow-x:hidden!important;
+  display:grid!important;
+  align-content:start!important;
+  touch-action:pan-y!important;
+  -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior-y:contain!important;
+}
+@media (max-width:1100px){
+  .stage:not(.pinned){
+    display:flex!important;
+    flex-direction:column!important;
+    height:calc(100dvh - 68px)!important;
+    max-height:calc(100dvh - 68px)!important;
+    min-height:0!important;
+  }
+  .stage:not(.pinned) .main-tile{
+    flex:0 0 auto!important;
+  }
+  .stage:not(.pinned) .thumbs{
+    flex:1 1 0!important;
+    height:0!important;
+    max-height:none!important;
+    min-height:0!important;
+    overflow-y:scroll!important;
+    overflow-x:hidden!important;
+  }
+}
+@media (min-width:701px) and (max-width:1100px){
+  .stage:not(.pinned) .thumbs{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    grid-auto-flow:row!important;
+    grid-auto-rows:110px!important;
+  }
+  .stage:not(.pinned) .thumb{height:110px!important;min-height:110px!important;}
+}
+@media (max-width:700px){
+  .stage:not(.pinned){height:calc(100dvh - 60px)!important;max-height:calc(100dvh - 60px)!important;}
+  .stage:not(.pinned) .thumbs{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-flow:row!important;
+    grid-auto-rows:104px!important;
+    gap:8px!important;
+    padding:8px 4px 18px!important;
+    width:100%!important;
+  }
+  .stage:not(.pinned) .thumb{height:104px!important;min-height:104px!important;}
+}
+@media (max-width:480px){
+  .stage:not(.pinned) .thumbs{grid-auto-rows:96px!important;}
+  .stage:not(.pinned) .thumb{height:96px!important;min-height:96px!important;}
+}
+/* Make the scrollbar visible on touch-capable browsers that expose it. */
+.stage:not(.pinned) .thumbs::-webkit-scrollbar{width:7px!important;height:0!important;}
+.stage:not(.pinned) .thumbs::-webkit-scrollbar-thumb{background:#496673!important;border-radius:999px!important;}
+
+/* v1.10.2 — temporary chat notification, styled like the reaction popup. */
+.chat-notice-pop{
+  position:absolute;left:50%;top:18px;transform:translateX(-50%);
+  z-index:120;display:flex;align-items:center;gap:10px;
+  width:min(420px,calc(100% - 28px));box-sizing:border-box;
+  padding:11px 14px;border:1px solid rgba(86,210,235,.38);border-radius:16px;
+  background:rgba(10,25,33,.96);box-shadow:0 14px 40px rgba(0,0,0,.42),0 0 24px rgba(55,205,235,.12);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  animation:chat-notice-in .22s ease-out both;
+  pointer-events:none;
+}
+.chat-notice-icon{width:34px;height:34px;flex:0 0 34px;border-radius:50%;display:grid;place-items:center;background:#143844;color:#74dcec}
+.chat-notice-icon svg{width:18px;height:18px}
+.chat-notice-copy{min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left}
+.chat-notice-copy b{font-size:12px;color:#74dcec;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-notice-copy span{font-size:13px;color:#e8f5f8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-control{position:relative!important}
+.chat-unread-dot{position:absolute;right:7px;top:7px;width:7px;height:7px;border-radius:50%;background:#ff5c7a;box-shadow:0 0 0 3px rgba(255,92,122,.16);animation:chat-dot-pulse 1.2s ease-in-out infinite}
+@keyframes chat-notice-in{from{opacity:0;transform:translate(-50%,-12px) scale(.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+@keyframes chat-dot-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.22)}}
+
+/* v1.10.2 — mobile/tablet layout hardening. Keep the meeting viewport fixed
+   and let only the intended gallery/panels scroll. */
+html,body,#root{min-height:100%;max-width:100%;overflow-x:hidden}
+.meeting{width:100%;max-width:100vw;box-sizing:border-box;overflow:hidden!important}
+.stage,.stage>*{min-width:0;max-width:100%}
+.stage:not(.pinned) .thumbs{overscroll-behavior:contain;scrollbar-gutter:stable;}
+@media (max-width:1100px){
+  .meeting{height:100dvh;min-height:100dvh;display:flex;flex-direction:column}
+  .meeting-head{flex:0 0 auto}
+  .stage:not(.pinned){flex:1 1 auto!important;width:100%;height:auto!important;max-height:none!important;min-height:0!important;display:flex!important;flex-direction:column!important}
+  .stage:not(.pinned) .main-tile{min-height:0!important;max-width:100%;overflow:hidden}
+  .stage:not(.pinned) .thumbs{min-height:0!important;height:auto!important;flex:1 1 0!important;max-height:none!important;overflow-y:scroll!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch!important;touch-action:pan-y!important}
+  .meeting-bottom{flex:0 0 auto;max-width:100%;min-width:0}
+  .meeting-controls{max-width:100%;min-width:0}
+  .chat-notice-pop{top:10px;width:min(390px,calc(100vw - 20px))}
+}
+@media (max-width:700px){
+  .meeting-head{padding-left:10px!important;padding-right:10px!important}
+  .stage:not(.pinned) .main-tile{min-height:130px!important}
+  .stage:not(.pinned) .thumbs{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:104px!important;gap:7px!important;padding:7px 4px 16px!important}
+  .stage:not(.pinned) .thumb{height:104px!important;min-height:104px!important}
+  .chat-notice-pop{top:7px;padding:9px 11px;border-radius:14px}
+  .chat-notice-icon{width:30px;height:30px;flex-basis:30px}
+  .chat-notice-copy span{font-size:12px}
+}
+@media (min-width:701px) and (max-width:1100px){
+  .stage:not(.pinned) .thumbs{grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-auto-rows:108px!important;gap:8px!important;padding:8px 5px 18px!important}
+  .stage:not(.pinned) .thumb{height:108px!important;min-height:108px!important}
+}

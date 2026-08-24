@@ -279,6 +279,8 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const [screenFullscreen,setScreenFullscreen]=useState(false);
  const [screenEpoch,setScreenEpoch]=useState(0);
  const [chat,setChat]=useState([]);
+ const [chatNotice,setChatNotice]=useState(null);
+ const chatNoticeTimerRef=useRef(null);
  const [message,setMessage]=useState('');
  const [micError,setMicError]=useState('');
  const [chatReady,setChatReady]=useState(false);
@@ -435,13 +437,20 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        if(RoomEvent.TrackUnmuted) liveRoom.on(RoomEvent.TrackUnmuted,refresh);
        liveRoom.on(RoomEvent.LocalTrackPublished,refresh);
        liveRoom.on(RoomEvent.LocalTrackUnpublished,refresh);
+       const showChatNotice=(sender,text)=>{
+         if(chatNoticeTimerRef.current) clearTimeout(chatNoticeTimerRef.current);
+         setChatNotice({id:crypto.randomUUID(),name:sender||'Participant',text:String(text||'').trim()});
+         chatNoticeTimerRef.current=setTimeout(()=>{setChatNotice(null);chatNoticeTimerRef.current=null;},3200);
+       };
        const appendChatMessage=(message,participant,local=false)=>{
          const text=typeof message==='string' ? message : (message?.message || message?.text || message?.content);
          const id=(typeof message==='object' && message?.id) ? message.id : crypto.randomUUID();
          if(typeof text!=='string' || !text.trim() || seenChatIdsRef.current.has(id)) return;
          seenChatIdsRef.current.add(id);
          const sender=local ? name : (participant?.name || participant?.identity || 'Participant');
-         setChat(c=>c.concat({id,name:sender,text:text.trim(),local}));
+         const clean=text.trim();
+         setChat(c=>c.concat({id,name:sender,text:clean,local}));
+         if(!local) showChatNotice(sender,clean);
        };
        liveRoom.on(RoomEvent.ChatMessage,(chatMessage,participant)=>{
          try{ appendChatMessage(chatMessage,participant,participant?.identity===liveRoom.localParticipant.identity); }
@@ -683,7 +692,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    tick();
    emoteCooldownTimerRef.current=setInterval(tick,100);
  };
- useEffect(()=>()=>{if(emoteCooldownTimerRef.current) clearInterval(emoteCooldownTimerRef.current);},[]);
+ useEffect(()=>()=>{if(emoteCooldownTimerRef.current) clearInterval(emoteCooldownTimerRef.current); if(chatNoticeTimerRef.current) clearTimeout(chatNoticeTimerRef.current);},[]);
  const sendInteractiveEmote=async(kind='sheeeshhh')=>{
    if(!emoteEnabled){setToast?.('Interactive emotes are disabled by the Admin.');setInteractivePicker(false);return;}
    if(emoteCooldown>0) return;
@@ -818,7 +827,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
            <span>Screen Share</span>
          </div>
        }
-       <div className="reaction-layer" aria-live="polite">{reactions.map((r,i)=><div className="floating-reaction" style={{left:`${8+((i*19+Math.floor((r.seed||0)*31))%82)}%`,animationDelay:`${(i%3)*65}ms`}} key={r.id} title={`${r.name}: ${r.emoji}`}><span className="reaction-glow"/><span className="reaction-ring"/><span className="reaction-particle p1"/><span className="reaction-particle p2"/><span className="reaction-particle p3"/><span className="reaction-emoji">{r.emoji}</span></div>)}</div>
+       <div className="reaction-layer" aria-live="polite">{reactions.map((r,i)=><div className="floating-reaction" style={{left:`${8+((i*19+Math.floor((r.seed||0)*31))%82)}%`,animationDelay:`${(i%3)*65}ms`}} key={r.id} title={`${r.name}: ${r.emoji}`}><span className="reaction-glow"/><span className="reaction-ring"/><span className="reaction-particle p1"/><span className="reaction-particle p2"/><span className="reaction-particle p3"/><span className="reaction-emoji">{r.emoji}</span></div>)}</div>{chatNotice&&<div className="chat-notice-pop" role="status" aria-live="polite"><span className="chat-notice-icon"><MeetingIcon type="chat"/></span><span className="chat-notice-copy"><b>{chatNotice.name}</b><span>{chatNotice.text}</span></span></div>}
        {showingScreen&&<button type="button" className="screen-fit-button" aria-label={screenFullscreen?'Exit full screen':'Full screen shared screen'} title={screenFullscreen?'Exit full screen':'Full screen'} onClick={toggleScreenFullscreen}><MeetingIcon type={screenFullscreen?'fullscreenExit':'fullscreen'}/></button>}
      </div>
      <div className="thumbs" aria-label="Meeting participants">{orderedParticipants.map((p,i)=><ParticipantTile key={p.participant?.identity||p.participant?.sid||`${p.name}-${p.index}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={p.effect} isSpeaking={p.speaking}/>)}</div>
@@ -845,7 +854,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
            </button>)}
          </div>}
        </div>
-       <button aria-label="Open chat" title="Chat" className="control" onClick={()=>document.getElementById('chat-panel')?.classList.toggle('open')}><span className="meeting-symbol"><MeetingIcon type="chat"/></span><span>Chat</span></button>
+       <button aria-label="Open chat" title="Chat" className={`control chat-control${chatNotice?' has-chat-notice':''}`} onClick={()=>{setChatNotice(null);document.getElementById('chat-panel')?.classList.toggle('open')}}><span className="meeting-symbol"><MeetingIcon type="chat"/></span><span>Chat</span>{chatNotice&&<i className="chat-unread-dot" aria-hidden="true"/>}</button>
        <button aria-label="Open participants" title="Participants" className="control" onClick={()=>document.getElementById('participants-panel')?.classList.toggle('open')}><span className="meeting-symbol"><MeetingIcon type="people"/></span><span>People</span></button>
        {role==='host'?<button aria-label="End meeting" title="End meeting" className="danger control end-control" onClick={onEnd}><span className="meeting-symbol"><MeetingIcon type="end"/></span><span>End</span></button>:<button aria-label="Leave meeting" title="Leave meeting" className="danger control end-control" onClick={onLeave}><span className="meeting-symbol"><MeetingIcon type="leave"/></span><span>Leave</span></button>}
      </div>
