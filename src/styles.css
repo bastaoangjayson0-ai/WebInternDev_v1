@@ -943,3 +943,74 @@ footer{background:#071017!important;color:#718994!important;border-top:1px solid
   .room-security-row{grid-template-columns:1fr;}
   .room-security-row .small{width:100%}
 }
+
+/* v1.10.0 — participant gallery: fixed viewport + internal vertical scrolling
+   Show a manageable number of tiles at once (about 5–10) while keeping the
+   meeting page itself fixed. The gallery is the scroll container on every device. */
+.thumbs{
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;
+  scrollbar-gutter:stable!important;
+  align-content:start!important;
+}
+/* Desktop: one-column sidebar, about 5 tiles visible before scrolling. */
+@media (min-width:801px){
+  .stage:not(.pinned) .thumbs{
+    max-height:690px!important;
+    grid-auto-rows:130px!important;
+  }
+}
+/* Tablet: 3 columns, about 6–9 tiles visible before scrolling. */
+@media (min-width:601px) and (max-width:800px){
+  .stage:not(.pinned) .thumbs{
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    grid-auto-flow:row!important;
+    grid-auto-columns:auto!important;
+    grid-auto-rows:minmax(92px,108px)!important;
+    max-height:350px!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+  }
+  .thumb{min-width:0!important;min-height:0!important;}
+}
+/* Phone: 2 columns, about 5–6 tiles visible before scrolling. */
+@media (max-width:600px){
+  .stage:not(.pinned) .thumbs{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-flow:row!important;
+    grid-auto-columns:auto!important;
+    grid-auto-rows:minmax(78px,92px)!important;
+    max-height:290px!important;
+    min-height:0!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    padding-right:2px!important;
+  }
+  .thumb{min-width:0!important;min-height:0!important;overflow:hidden!important;}
+}
+/* Very short phone screens: keep the gallery usable without consuming the whole meeting. */
+@media (max-width:600px) and (max-height:700px){
+  .stage:not(.pinned) .thumbs{max-height:235px!important;}
+}
+/* When pinned, retain a compact participant strip that can still scroll. */
+.stage.pinned .thumbs{
+  max-height:170px!important;
+  overflow-y:auto!important;
+  overflow-x:auto!important;
+  grid-auto-flow:column!important;
+  grid-auto-columns:minmax(130px,1fr)!important;
+  grid-auto-rows:130px!important;
+}
+@media (max-width:600px){
+  .stage.pinned .thumbs{
+    max-height:150px!important;
+    grid-auto-columns:110px!important;
+    grid-auto-rows:100px!important;
+  }
+}
