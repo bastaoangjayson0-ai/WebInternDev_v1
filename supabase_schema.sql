@@ -59,3 +59,13 @@ alter publication supabase_realtime drop table if exists public.wid_rooms;
 alter publication supabase_realtime drop table if exists public.wid_attendance;
 alter publication supabase_realtime add table public.wid_rooms;
 alter publication supabase_realtime add table public.wid_attendance;
+
+
+-- WebInternDev v1.9.9 migration: room passwords + global Admin emote control.
+alter table public.wid_rooms add column if not exists room_password text not null default '';
+alter table public.wid_settings add column if not exists emote_enabled boolean not null default true;
+update public.wid_settings set emote_enabled=true where id=1 and emote_enabled is null;
+
+-- Realtime lets every active meeting immediately receive Admin emote enable/disable changes.
+alter publication supabase_realtime drop table if exists public.wid_settings;
+alter publication supabase_realtime add table public.wid_settings;

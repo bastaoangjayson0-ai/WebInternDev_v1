@@ -12,13 +12,14 @@ import {dbList,dbInsert,dbUpdate,dbUpsert,dbDelete,supabaseConfig,supabase,check
 const DEFAULTS={admin:{name:'Bastaoang Jayson A',password:'webinternDEV'},hostPassword:'BSIT',userPassword:'CRT-NEUST-GSC'};
 const REMOTE_AUDIO_VOLUME=1.0;
 const defaultRooms=[];
-const mapRoom=r=>({id:r.id,title:r.title,host:r.host,participants:r.participants,active:r.active,createdAt:r.created_at});
+const mapRoom=r=>({id:r.id,title:r.title,host:r.host,participants:r.participants,active:r.active,createdAt:r.created_at,roomPassword:r.room_password||'',});
 const mapAttendance=a=>({id:a.id,name:a.name,role:a.role,roomId:a.room_id,roomTitle:a.room_title,host:a.host,joinedAt:a.joined_at,leftAt:a.left_at,duration:a.duration});
 const read=(key,fallback)=>{try{const v=JSON.parse(localStorage.getItem(key));return v??fallback}catch{return fallback}};
 const write=(key,value)=>localStorage.setItem(key,JSON.stringify(value));
 function App(){
  const [role,setRole]=useState(null),[page,setPage]=useState('entry'),[name,setName]=useState(''),[password,setPassword]=useState(''),[rooms,setRooms]=useState(()=>read('wid_rooms',defaultRooms)),[currentRoom,setCurrentRoom]=useState(null),[camera,setCamera]=useState(false),[mic,setMic]=useState(true),[sharing,setSharing]=useState(false),[pinned,setPinned]=useState(false),[toast,setToast]=useState('');
  const [adminView,setAdminView]=useState(null);
+ const [emoteEnabled,setEmoteEnabled]=useState(()=>read('wid_emote_enabled',true));
  const [syncStatus,setSyncStatus]=useState('connecting');
  const [credentials,setCredentials]=useState(()=>read('wid_credentials',DEFAULTS));
  const [attendance,setAttendance]=useState(()=>read('wid_attendance',[]));
@@ -27,6 +28,7 @@ function App(){
  useEffect(()=>write('wid_credentials',credentials),[credentials]);
  useEffect(()=>write('wid_attendance',attendance),[attendance]);
  useEffect(()=>write('wid_users',knownUsers),[knownUsers]);
+ useEffect(()=>write('wid_emote_enabled',emoteEnabled),[emoteEnabled]);
  useEffect(()=>{
    let cancelled=false;
    (async()=>{
@@ -56,7 +58,7 @@ function App(){
          if(cancelled) return;
          if(kind==='users'&&Array.isArray(data))setKnownUsers(data.map(u=>({name:u.name,role:u.role})));
          if(kind==='attendance'&&Array.isArray(data))setAttendance(data.map(mapAttendance));
-         if(kind==='settings'&&Array.isArray(data)&&data[0])setCredentials(c=>({...c,hostPassword:data[0].host_password,userPassword:data[0].user_password}));
+         if(kind==='settings'&&Array.isArray(data)&&data[0]){setCredentials(c=>({...c,hostPassword:data[0].host_password,userPassword:data[0].user_password})); if(typeof data[0].emote_enabled==='boolean') setEmoteEnabled(data[0].emote_enabled);}
        }catch(e){
          console.warn(`Optional Supabase ${kind} sync unavailable:`,e.message);
        }
@@ -92,6 +94,17 @@ function App(){
    return()=>{mounted=false;supabase.removeChannel(channel)};
  },[]);
  useEffect(()=>{
+   let mounted=true;
+   const channel=supabase.channel('wid-settings-live')
+     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'wid_settings',filter:'id=eq.1'},payload=>{
+       if(!mounted||!payload.new)return;
+       if(typeof payload.new.emote_enabled==='boolean') setEmoteEnabled(payload.new.emote_enabled);
+       if(payload.new.host_password) setCredentials(c=>({...c,hostPassword:payload.new.host_password}));
+       if(payload.new.user_password) setCredentials(c=>({...c,userPassword:payload.new.user_password}));
+     }).subscribe();
+   return()=>{mounted=false;supabase.removeChannel(channel)};
+ },[]);
+ useEffect(()=>{
    if(!role || page==='meeting') return;
    let cancelled=false;
    const refresh=async()=>{
@@ -101,7 +114,7 @@ function App(){
      }catch(e){if(!cancelled){setSyncStatus('error');console.warn('Room refresh failed:',e.message)}}
    };
    refresh();
-   const timer=setInterval(refresh,3000);
+   const timer=setInterval(refresh,12000);
    return()=>{cancelled=true;clearInterval(timer)};
  },[role,page]);
  useEffect(()=>{
@@ -133,7 +146,7 @@ function App(){
    const id=crypto.randomUUID();
    const createdAt=new Date().toISOString();
    try{
-     const rows=await dbInsert('wid_rooms',{id,title:title.trim(),host:name,participants:0,active:true,created_at:createdAt});
+     const rows=await dbInsert('wid_rooms',{id,title:title.trim(),host:name,participants:0,active:true,created_at:createdAt,room_password:''});
      const saved=Array.isArray(rows)&&rows[0]?mapRoom(rows[0]):{id,title:title.trim(),host:name,participants:0,active:true,createdAt};
      setRooms(prev=>[saved,...prev.filter(r=>r.id!==saved.id)]);
      setSyncStatus('online');
@@ -147,6 +160,11 @@ function App(){
  async function joinRoom(room){
    if(!room?.id){setToast('This meeting has no valid room ID. Please refresh the meeting list.');return}
    if(role==='user'&&Number(room.participants||0)>=50){setToast('This meeting is full.');return}
+   if(role==='user' && room.roomPassword){
+     const entered=window.prompt(`Password required for \"${room.title}\"`);
+     if(entered===null)return;
+     if(entered!==room.roomPassword){setToast('Incorrect room password.');return;}
+   }
    const nextParticipants=role==='user'?Math.min(50,Number(room.participants||0)+1):Number(room.participants||0);
 
    // Never block the actual LiveKit join on a participant-count database update.
@@ -176,15 +194,15 @@ function App(){
   <main>
    {page==='entry'&&<Entry onSelect={enterRole}/>}
    {page==='login'&&<Login role={role} name={name} setName={setName} password={password} setPassword={setPassword} onSubmit={login} onBack={()=>setPage('entry')}/>} 
-   {page==='dashboard'&&<Dashboard role={role} name={name} rooms={activeRooms} setRooms={setRooms} syncStatus={syncStatus} onCreate={createRoom} onJoin={joinRoom} onEnd={adminEnd} onOpenAdmin={setAdminView} adminView={adminView} credentials={credentials} setCredentials={setCredentials} attendance={attendance} setAttendance={setAttendance} users={knownUsers} setUsers={setKnownUsers} toast={setToast}/>} 
-   {page==='meeting'&&<Meeting role={role} name={name} room={currentRoom} avatar={avatar} setToast={setToast} camera={camera} mic={mic} sharing={sharing} pinned={pinned} setCamera={setCamera} setMic={setMic} setSharing={setSharing} setPinned={setPinned} onLeave={leaveMeeting} onEnd={endRoom}/>} 
+   {page==='dashboard'&&<Dashboard role={role} name={name} rooms={activeRooms} setRooms={setRooms} syncStatus={syncStatus} onCreate={createRoom} onJoin={joinRoom} onEnd={adminEnd} onOpenAdmin={setAdminView} adminView={adminView} credentials={credentials} emoteEnabled={emoteEnabled} setEmoteEnabled={setEmoteEnabled} setCredentials={setCredentials} attendance={attendance} setAttendance={setAttendance} users={knownUsers} setUsers={setKnownUsers} toast={setToast}/>} 
+   {page==='meeting'&&<Meeting role={role} name={name} room={currentRoom} avatar={avatar} setToast={setToast} camera={camera} mic={mic} sharing={sharing} pinned={pinned} setCamera={setCamera} setMic={setMic} setSharing={setSharing} setPinned={setPinned} onLeave={leaveMeeting} onEnd={endRoom} emoteEnabled={emoteEnabled}/>} 
   </main>{toast&&<div className="toast">{toast}</div>}<footer>WebInternDev • Responsive meeting platform</footer>
  </div>
 }
 function Entry({onSelect}){return <section className="hero"><div className="hero-card entry-card"><div className="hero-brand-wrap"><img className="hero-logo" src={logo}/></div><div className="entry-intro"><span className="entry-kicker">SECURE • SIMPLE • CONNECTED</span><h1>How do you want to enter?</h1><p>Select your role to continue to WebInternDev.</p></div><div className="role-grid"><RoleCard title="Admin" desc="Monitor meetings and manage the platform" onClick={()=>onSelect('admin')} icon="admin"/><RoleCard title="Host" desc="Create meetings and share your screen" onClick={()=>onSelect('host')} icon="host"/><RoleCard title="User" desc="Join an active meeting and collaborate" onClick={()=>onSelect('user')} icon="user"/></div><div className="entry-footer"><span>WebInternDev</span><span>Professional meeting workspace</span></div></div></section>}
 function RoleCard({title,desc,onClick,icon}){const paths={admin:<><path d="M4 19.5V9.8L12 5l8 4.8v9.7"/><path d="M8 19.5v-6h8v6M3 19.5h18M9 9.5h6"/></>,host:<><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m8 9 5 3-5 3V9ZM16 9h2M16 12h2M16 15h2"/></>,user:<><circle cx="12" cy="8" r="3.5"/><path d="M5.5 19c.8-3.2 3-5 6.5-5s5.7 1.8 6.5 5"/></>};return <button className="role-card" onClick={onClick}><span className="role-icon"><svg viewBox="0 0 24 24">{paths[icon]}</svg></span><span>{title}</span><small>{desc}</small><strong>Continue <i>→</i></strong></button>}
 function Login({role,name,setName,password,setPassword,onSubmit,onBack}){return <section className="center"><div className="panel login-panel"><div className="login-mark">{role==='admin'?'A':role==='host'?'H':'U'}</div><h1>{role==='admin'?'Admin Login':role==='host'?'Host Login':'User Login'}</h1><p className="muted">{role==='admin'?'Use the administrator account.':'Enter your name and shared role password.'}</p><form onSubmit={onSubmit}><label>Name<input value={name} onChange={e=>setName(e.target.value)} placeholder={role==='admin'?'Bastaoang Jayson A':'Enter your name'} required/></label><label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" required/></label><button className="primary wide">Continue</button></form><button className="link-btn" onClick={onBack}>← Back</button></div></section>}
-function Dashboard({role,name,rooms,setRooms,syncStatus,onCreate,onJoin,onEnd,onOpenAdmin,adminView,credentials,setCredentials,attendance,setAttendance,users,setUsers,toast}){
+function Dashboard({role,name,rooms,setRooms,syncStatus,onCreate,onJoin,onEnd,onOpenAdmin,adminView,credentials,setCredentials,attendance,setAttendance,users,setUsers,toast,emoteEnabled,setEmoteEnabled}){
  const [selectedRoom,setSelectedRoom]=useState(null);
  const [setup,setSetup]=useState(null);
  const [checking,setChecking]=useState(false);
@@ -194,7 +212,7 @@ function Dashboard({role,name,rooms,setRooms,syncStatus,onCreate,onJoin,onEnd,on
  {setup&&<SupabaseSetupChecker result={setup} checking={checking} onCheck={runSetupCheck}/>}
  {role==='admin'&&<div className="stats"><Stat n={rooms.length} t="Active Meetings"/><Stat n={rooms.reduce((a,r)=>a+r.participants,0)} t="Participants"/><Stat n="50" t="Capacity / Room"/><Stat n="2" t="Room Limit"/></div>}
  <div className="section-head"><h2>{role==='admin'?'Active Meetings':'Available Meetings'}</h2><span>{rooms.length}/2 active • {syncStatus==='online'?'● Online sync':syncStatus==='connecting'?'Connecting…':'⚠ Sync error'}</span></div><div className="room-actions"><button className="ghost small" onClick={async()=>{try{const rr=await dbList('wid_rooms','?select=*&active=eq.true&order=created_at.desc');setRooms(rr.map(mapRoom));setSyncStatus('online');setToast('Meeting list refreshed.')}catch(e){setSyncStatus('error');setSetup(null);setToast('Refresh failed. Running the Supabase setup checker…');setTimeout(runSetupCheck,50)}}}>↻ Refresh meetings</button><button className="ghost small" onClick={runSetupCheck} disabled={checking}>{checking?'Checking…':'⚙ Check Supabase setup'}</button></div><div className="room-grid">{rooms.length?rooms.map(r=><RoomCard key={r.id} room={r} role={role} onJoin={()=>{setSelectedRoom(r);onJoin(r)}} onEnd={()=>onEnd(r)}/>):<div className="empty"><b>No active meetings</b><p>{role==='host'?'Create your first meeting to get started.':'Wait for a Host to create a meeting.'}</p></div>}</div>
- {role==='admin'&&<><div className="section-head"><h2>Admin controls</h2></div><div className="control-grid"><AdminControl title="User Management" icon="users" desc="View users who have entered WebInternDev and manage their access." onClick={()=>onOpenAdmin('users')}/><AdminControl title="Password Management" icon="lock" desc="Change the Host and User shared passwords." onClick={()=>onOpenAdmin('passwords')}/><AdminControl title="Attendance" icon="calendar" desc="View join time, leave time, duration, room and participant history." onClick={()=>onOpenAdmin('attendance')}/></div>{adminView&&<AdminPanel view={adminView} close={()=>onOpenAdmin(null)} credentials={credentials} setCredentials={setCredentials} attendance={attendance} setAttendance={setAttendance} users={users} setUsers={setUsers} toast={toast}/>}</>}
+ {role==='admin'&&<><div className="section-head"><h2>Admin controls</h2></div><div className="control-grid"><AdminControl title="User Management" icon="users" desc="View users who have entered WebInternDev and manage their access." onClick={()=>onOpenAdmin('users')}/><AdminControl title="Password Management" icon="lock" desc="Change the Host and User shared passwords." onClick={()=>onOpenAdmin('passwords')}/><AdminControl title="Attendance" icon="calendar" desc="View join time, leave time, duration, room and participant history." onClick={()=>onOpenAdmin('attendance')}/><AdminControl title="Emote & Room Security" icon="shield" desc="Disable emotes and create passwords for Host-created rooms." onClick={()=>onOpenAdmin('security')}/></div>{adminView&&<AdminPanel view={adminView} close={()=>onOpenAdmin(null)} credentials={credentials} setCredentials={setCredentials} rooms={rooms} setRooms={setRooms} emoteEnabled={emoteEnabled} setEmoteEnabled={setEmoteEnabled} attendance={attendance} setAttendance={setAttendance} users={users} setUsers={setUsers} toast={toast}/>}</>}
  </section>
 }
 function SupabaseSetupChecker({result,checking,onCheck}){
@@ -210,21 +228,26 @@ function SupabaseSetupChecker({result,checking,onCheck}){
  </div>
 }
 function AdminControl({title,desc,onClick,icon}){return <button className="admin-control" onClick={onClick}><span className="admin-control-icon">{icon==='users'?'◎':icon==='lock'?'⌑':'▣'}</span><span><b>{title}</b><small>{desc}</small></span><strong>Open →</strong></button>}
-function AdminPanel({view,close,credentials,setCredentials,attendance,setAttendance,users,setUsers,toast}){
+function AdminPanel({view,close,credentials,setCredentials,rooms,setRooms,emoteEnabled,setEmoteEnabled,attendance,setAttendance,users,setUsers,toast}){
  const [hostPwd,setHostPwd]=useState(credentials.hostPassword),[userPwd,setUserPwd]=useState(credentials.userPassword);
+ const [securitySaving,setSecuritySaving]=useState(false);
+ const toggleEmotes=async(next)=>{setEmoteEnabled(next);try{await dbUpsert('wid_settings',{id:1,host_password:credentials.hostPassword,user_password:credentials.userPassword,emote_enabled:next,updated_at:new Date().toISOString()});toast(next?'Emotes enabled for all rooms.':'Emotes disabled for everyone.');}catch(e){toast('Saved on this device, but online emote control needs the updated Supabase schema.')}};
+ const saveRoomPassword=async(room,passwordValue)=>{setSecuritySaving(true);const clean=String(passwordValue||'').trim();try{await dbUpdate('wid_rooms',`?id=eq.${encodeURIComponent(room.id)}`,{room_password:clean});setRooms(list=>list.map(r=>r.id===room.id?{...r,roomPassword:clean}:r));toast(clean?`Password set for ${room.title}.`:`Room password removed for ${room.title}.`);}catch(e){toast(`Could not save room password: ${e.message}`)}finally{setSecuritySaving(false)}};
  const savePasswords=async()=>{if(!hostPwd.trim()||!userPwd.trim()){toast('Passwords cannot be empty.');return}setCredentials(c=>({...c,hostPassword:hostPwd,userPassword:userPwd}));try{await dbUpsert('wid_settings',{id:1,host_password:hostPwd,user_password:userPwd,updated_at:new Date().toISOString()});toast('Host and User passwords updated online.');close()}catch(e){toast('Saved locally, but Supabase update failed. Run supabase_schema.sql and check RLS.')}};
  const removeUser=(idx)=>{const u=users[idx];setUsers(list=>list.filter((_,i)=>i!==idx));toast(`${u.name} removed from the local user list.`)};
  const deleteAttendance=async(id)=>{try{await dbDelete('wid_attendance',`?id=eq.${encodeURIComponent(id)}`);setAttendance(list=>list.filter(x=>x.id!==id));toast?.('Call history entry deleted.')}catch(e){toast?.(`Could not delete call history: ${e.message}`)}};
  const clearAttendance=async()=>{if(!window.confirm('Delete all call and attendance history? This cannot be undone.'))return;try{await dbDelete('wid_attendance','?id=not.is.null');setAttendance([]);toast?.('All call history deleted.')}catch(e){toast?.(`Could not clear call history: ${e.message}`)}};
- return <div className="admin-panel"><div className="admin-panel-head"><div><span className="eyebrow">Admin Control</span><h2>{view==='users'?'User Management':view==='passwords'?'Password Management':'Attendance'}</h2></div><button className="ghost" onClick={close}>Close</button></div>
+ return <div className="admin-panel"><div className="admin-panel-head"><div><span className="eyebrow">Admin Control</span><h2>{view==='users'?'User Management':view==='passwords'?'Password Management':view==='security'?'Emote & Room Security':'Attendance'}</h2></div><button className="ghost" onClick={close}>Close</button></div>
  {view==='users'&&<div className="table-wrap">{users.length?<table><thead><tr><th>Name</th><th>Role</th><th>Access</th><th></th></tr></thead><tbody>{users.map((u,i)=><tr key={`${u.name}-${u.role}-${i}`}><td>{u.name}</td><td>{u.role}</td><td><span className="status">Active</span></td><td><button className="danger small" onClick={()=>removeUser(i)}>Remove</button></td></tr>)}</tbody></table>:<div className="empty"><b>No users recorded yet.</b><p>A Host or User will appear here after entering the platform.</p></div>}</div>}
  {view==='passwords'&&<div className="password-grid"><label>Host password<input type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)}/></label><label>User password<input type="password" value={userPwd} onChange={e=>setUserPwd(e.target.value)}/></label><div className="panel-actions"><button className="primary" onClick={savePasswords}>Save Passwords</button><button className="ghost" onClick={()=>{setHostPwd(DEFAULTS.hostPassword);setUserPwd(DEFAULTS.userPassword)}}>Reset defaults</button></div></div>}
+ {view==='security'&&<div className="security-admin"><div className="security-toggle"><div><b>Interactive Emotes</b><small>{emoteEnabled?'SHEEESHHH and FAAAAH are available to everyone.':'All interactive emotes are disabled for everyone.'}</small></div><button className={emoteEnabled?'primary':'danger'} onClick={()=>toggleEmotes(!emoteEnabled)}>{emoteEnabled?'Disable Emotes':'Enable Emotes'}</button></div><div className="room-security-list"><h3>Room passwords</h3><p className="muted">Set or remove a password for any active Host-created room. Users must enter it before joining.</p>{rooms.length?rooms.map(room=><RoomSecurityRow key={room.id} room={room} disabled={securitySaving} onSave={saveRoomPassword}/>):<div className="empty"><b>No active rooms.</b><p>Create a meeting first, then set its password here.</p></div>}</div></div>}
  {view==='attendance'&&<div className="table-wrap"><div className="history-actions"><b>Call & Attendance History</b>{attendance.length>0&&<button className="danger small" onClick={clearAttendance}>Clear all history</button>}</div>{attendance.length?<table><thead><tr><th>Name</th><th>Role</th><th>Meeting</th><th>Joined</th><th>Left</th><th>Duration</th><th>Action</th></tr></thead><tbody>{attendance.slice().reverse().map(a=><tr key={a.id}><td>{a.name}</td><td>{a.role}</td><td>{a.roomTitle}</td><td>{formatDate(a.joinedAt)}</td><td>{a.leftAt?formatDate(a.leftAt):<span className="status">In meeting</span>}</td><td>{a.duration!=null?`${a.duration} min`:'—'}</td><td><button className="danger small" onClick={()=>deleteAttendance(a.id)}>Delete</button></td></tr>)}</tbody></table>:<div className="empty"><b>No call history yet.</b><p>Call and attendance history is recorded when a Host or User joins a meeting.</p></div>}</div>}
  </div>
 }
+function RoomSecurityRow({room,disabled,onSave}){const [value,setValue]=useState(room.roomPassword||'');useEffect(()=>setValue(room.roomPassword||''),[room.roomPassword]);return <div className="room-security-row"><div><b>{room.title}</b><small>Host: {room.host}</small></div><input type="password" value={value} onChange={e=>setValue(e.target.value)} placeholder="No password" autoComplete="new-password"/><button className="primary small" disabled={disabled} onClick={()=>onSave(room,value)}>Save</button></div>}
 function formatDate(v){return new Date(v).toLocaleString([], {dateStyle:'short',timeStyle:'short'})}
 function Stat({n,t}){return <div className="stat"><strong>{n}</strong><span>{t}</span></div>}
-function RoomCard({room,role,onJoin,onEnd}){return <div className="room-card"><div className="room-top"><span className="live">● LIVE</span><span>{room.participants}/50</span></div><h3>{room.title}</h3><p className="muted">Host: {room.host}</p><div className="room-actions">{role==='admin'?<><button className="primary" onClick={onJoin}>Join Room</button><button className="danger" onClick={onEnd}>End Meeting</button></>:<button className="primary" onClick={onJoin}>{role==='host'?'Open Meeting':'Join Meeting'}</button>}</div></div>}
+function RoomCard({room,role,onJoin,onEnd}){return <div className="room-card"><div className="room-top"><span className="live">● LIVE</span><span>{room.participants}/50</span></div><h3>{room.title}</h3><p className="muted">Host: {room.host}{room.roomPassword?' • 🔒 Password protected':''}</p><div className="room-actions">{role==='admin'?<><button className="primary" onClick={onJoin}>Join Room</button><button className="danger" onClick={onEnd}>End Meeting</button></>:<button className="primary" onClick={onJoin}>{role==='host'?'Open Meeting':'Join Meeting'}</button>}</div></div>}
 function MeetingIcon({type}){
  const paths={
   mic:<><rect x="8" y="3.5" width="8" height="12" rx="4"/><path d="M5 11.5a7 7 0 0 0 14 0M12 18.5V22M8.5 22h7"/></>,
@@ -246,7 +269,7 @@ function MeetingIcon({type}){
  return <svg className="meeting-icon-svg" viewBox="0 0 24 24" aria-hidden="true">{paths[type]||paths.people}</svg>;
 }
 
-function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setMic,setSharing,setPinned,onLeave,onEnd,setToast}){
+function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setMic,setSharing,setPinned,onLeave,onEnd,setToast,emoteEnabled}){
  const [connection,setConnection]=useState('connecting');
  const [participants,setParticipants]=useState([]);
  const [localTracks,setLocalTracks]=useState([]);
@@ -306,7 +329,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        const data=await resp.json();
        if(!resp.ok) throw new Error(data.error||data.detail||`Token endpoint returned HTTP ${resp.status}.`);
        const {Room,RoomEvent}=await import('livekit-client');
-       liveRoom=new Room({adaptiveStream:false,dynacast:false,autoSubscribe:true});
+       liveRoom=new Room({adaptiveStream:true,dynacast:true,autoSubscribe:true});
        liveRoomRef.current=liveRoom;
        const refresh=()=>{
          if(!mounted.current)return;
@@ -314,7 +337,13 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
          let activeRemoteScreen=null;
          liveRoom.remoteParticipants.forEach(p=>{
            try{p.setVolume?.(REMOTE_AUDIO_VOLUME)}catch{}
-           const screenPub=Array.from(p.videoTrackPublications?.values?.()||[]).find(pub=>
+           const videoPubs=Array.from(p.videoTrackPublications?.values?.()||[]);
+           videoPubs.forEach(pub=>{
+             try{
+               if(pub.source==='camera' && pub.track) { pub.setSubscribed?.(true); pub.setVideoQuality?.(0); }
+             }catch{}
+           });
+           const screenPub=videoPubs.find(pub=>
              (pub.source==='screen_share' || pub.source==='screenShare') && pub.track
            );
            if(screenPub?.track && isUsableScreenTrack(screenPub.track)) {
@@ -442,6 +471,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
              return;
            }
            if(msg?.type==='interactive_emote' && (msg.kind==='sheeeshhh' || msg.kind==='faaah')){
+             if(!emoteEnabled) return;
              const senderId=String(participant?.identity || msg.senderId || msg.targetId || '');
              const now=Date.now();
              const lastRemote=remoteEmoteCooldownRef.current.get(senderId)||0;
@@ -494,6 +524,8 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
              if (!publication.isSubscribed) await publication.setSubscribed(true);
              if (publication?.source==='screen_share' || publication?.source==='screenShare') {
                publication.setVideoQuality?.(2);
+             } else if (publication?.source==='camera') {
+               publication.setVideoQuality?.(0);
              }
            } catch (e) {
              console.warn('Initial remote track subscription failed:', participant.identity, publication.source, e);
@@ -653,6 +685,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  };
  useEffect(()=>()=>{if(emoteCooldownTimerRef.current) clearInterval(emoteCooldownTimerRef.current);},[]);
  const sendInteractiveEmote=async(kind='sheeeshhh')=>{
+   if(!emoteEnabled){setToast?.('Interactive emotes are disabled by the Admin.');setInteractivePicker(false);return;}
    if(emoteCooldown>0) return;
    const r=liveRoomRef.current;
    if(!r?.localParticipant || r.state!=='connected'){
@@ -758,8 +791,9 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    const sid=String(p.participant?.sid||'').trim();
    const targetId=identity||`local-${name}`;
    const effect=interactiveEffects.find(x=>x.targetId===targetId);
-   const speaking=activeSpeakerIds.includes(targetId)||activeSpeakerIds.includes(sid?`sid:${sid}`:'');
-   return {...p,index,targetId,effect,speaking,priority:(effect?2:0)+(speaking?1:0)};
+   const speaking=Boolean(p.participant?.isSpeaking)||activeSpeakerIds.includes(targetId)||activeSpeakerIds.includes(sid?`sid:${sid}`:'');
+   const isHost=p.role==='host';
+   return {...p,index,targetId,effect,speaking,isHost,priority:(isHost?100:0)+(effect?20:0)+(speaking?10:0)};
  }).sort((a,b)=>b.priority-a.priority||a.index-b.index);
  const screenFromRemote=(isUsableScreenTrack(remoteScreenTrack)?remoteScreenTrack:null) || participants.map(p=>trackForParticipant(p,'screen_share')||trackForParticipant(p,'screenShare')).find(isUsableScreenTrack) || null;
  const mainScreen=isUsableScreenTrack(screenTrack)?screenTrack:screenFromRemote;
@@ -802,8 +836,8 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        </>}
        <div className="reaction-control-wrap"><button aria-label="Send reaction" title="Reactions" className={reactionPicker?'control active react-open':'control react-open'} onClick={()=>{setReactionPicker(v=>!v);setInteractivePicker(false)}}><span className="meeting-symbol"><MeetingIcon type="react"/></span><span>React</span></button>{reactionPicker&&<div className="reaction-picker">{REACTIONS.map(emoji=><button type="button" key={emoji} onClick={()=>sendReaction(emoji)} aria-label={`Send ${emoji}`}>{emoji}</button>)}</div>}</div>
        <div className="interactive-control-wrap">
-         <button type="button" aria-label={emoteCooldown>0?`Emote cooldown ${Math.ceil(emoteCooldown/1000)} seconds`:'Choose an emote'} title={emoteCooldown>0?`Wait ${Math.ceil(emoteCooldown/1000)}s before using another emote`:'Choose an emote'} disabled={emoteCooldown>0} className={`control interactive-open${emoteCooldown>0?' cooldown':''}`} onClick={(e)=>{e.stopPropagation();setInteractivePicker(v=>!v);setReactionPicker(false)}}><span className="meeting-symbol interactive-selected-icon"><img src={selectedInteractive.image} alt={selectedInteractive.label}/></span><span>{emoteCooldown>0?`Emote ${Math.ceil(emoteCooldown/1000)}s`:'Emote'}</span></button>
-         {interactivePicker&&emoteCooldown<=0&&<div className="interactive-picker" role="menu" aria-label="Choose an emote">
+         {emoteEnabled&&<button type="button" aria-label={emoteCooldown>0?`Emote cooldown ${Math.ceil(emoteCooldown/1000)} seconds`:'Choose an emote'} title={emoteCooldown>0?`Wait ${Math.ceil(emoteCooldown/1000)}s before using another emote`:'Choose an emote'} disabled={emoteCooldown>0} className={`control interactive-open${emoteCooldown>0?' cooldown':''}`} onClick={(e)=>{e.stopPropagation();setInteractivePicker(v=>!v);setReactionPicker(false)}}><span className="meeting-symbol interactive-selected-icon"><img src={selectedInteractive.image} alt={selectedInteractive.label}/></span><span>{emoteCooldown>0?`Emote ${Math.ceil(emoteCooldown/1000)}s`:'Emote'}</span></button>}
+         {emoteEnabled&&interactivePicker&&emoteCooldown<=0&&<div className="interactive-picker" role="menu" aria-label="Choose an emote">
            <div className="interactive-picker-head"><strong>Choose Emote</strong><button type="button" aria-label="Close emote picker" onClick={()=>setInteractivePicker(false)}>×</button></div>
            <p className="interactive-picker-hint">Each emote has its own sound and visual effect.</p>
            {INTERACTIVE_EMOTES.map(emote=><button type="button" role="menuitem" key={emote.kind} className={`interactive-picker-item${selectedInteractive.kind===emote.kind?' selected':''}`} onClick={()=>sendInteractiveEmote(emote.kind)}>

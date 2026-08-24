@@ -795,3 +795,151 @@ footer{background:#071017!important;color:#718994!important;border-top:1px solid
     max-height:50vh!important;
   }
 }
+
+/* v1.9.8 — Reliable participant gallery scrolling on phones/tablets
+   The gallery gets a real viewport height so overflow-y can always scroll.
+   This overrides the older horizontal participant strip rules. */
+.thumbs{
+  min-width:0!important;
+  min-height:0!important;
+  box-sizing:border-box!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior-y:contain!important;
+  overscroll-behavior-x:none!important;
+  touch-action:pan-y!important;
+  scrollbar-width:auto!important;
+  scrollbar-color:#3c5c69 transparent!important;
+  align-content:start!important;
+}
+.thumbs::-webkit-scrollbar{width:8px;height:0}
+.thumbs::-webkit-scrollbar-track{background:transparent}
+.thumbs::-webkit-scrollbar-thumb{background:#3c5c69;border-radius:999px}
+
+@media (min-width:701px) and (max-width:1100px){
+  .stage:not(.pinned) .thumbs{
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    grid-auto-flow:row!important;
+    grid-auto-rows:110px!important;
+    width:100%!important;
+    height:min(46vh,520px)!important;
+    max-height:min(46vh,520px)!important;
+    min-height:220px!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    padding:8px 4px 14px!important;
+    gap:8px!important;
+    touch-action:pan-y!important;
+  }
+  .stage:not(.pinned) .thumbs .thumb{
+    width:100%!important;
+    min-width:0!important;
+    height:110px!important;
+  }
+}
+
+@media (max-width:700px){
+  .stage:not(.pinned) .thumbs{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-flow:row!important;
+    grid-auto-rows:104px!important;
+    width:100%!important;
+    height:min(48dvh,460px)!important;
+    max-height:min(48dvh,460px)!important;
+    min-height:180px!important;
+    flex:none!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    padding:8px 3px 16px!important;
+    gap:8px!important;
+    touch-action:pan-y!important;
+    overscroll-behavior:contain!important;
+  }
+  .stage:not(.pinned) .thumbs .thumb{
+    width:100%!important;
+    min-width:0!important;
+    height:104px!important;
+  }
+}
+
+@media (max-width:480px){
+  .stage:not(.pinned) .thumbs{
+    height:min(46dvh,390px)!important;
+    max-height:min(46dvh,390px)!important;
+    min-height:170px!important;
+    grid-auto-rows:96px!important;
+    gap:7px!important;
+  }
+  .stage:not(.pinned) .thumbs .thumb{height:96px!important}
+}
+
+
+/* v1.9.9 — Google Meet-style host-first participant ordering + reliable mobile gallery viewport */
+.thumbs{
+  contain:layout paint;
+  will-change:scroll-position;
+}
+.thumb{will-change:transform,box-shadow;border-radius:14px;}
+.security-admin{display:grid;gap:18px}
+.security-toggle{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px;border:1px solid #29434f;border-radius:16px;background:#0d1b23}
+.security-toggle b,.room-security-list h3{display:block;color:#eef9fc}
+.security-toggle small,.room-security-row small{display:block;color:#9fb2bb;margin-top:4px}
+.room-security-list{display:grid;gap:12px}
+.room-security-list>p{margin:0 0 4px}
+.room-security-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,280px) auto;align-items:center;gap:10px;padding:12px;border:1px solid #29434f;border-radius:14px;background:#0d1b23}
+.room-security-row input{width:100%;background:#081219;color:#edf7fb;border:1px solid #2a424e;border-radius:10px;padding:10px 12px;outline:none}
+.room-security-row input:focus{border-color:#2ac0d8;box-shadow:0 0 0 3px rgba(42,192,216,.12)}
+
+/* The participant gallery is an actual viewport. The page itself stays stable while
+   the gallery scrolls, which is essential for 50 participants on touch devices. */
+@media (max-width:1100px){
+  .meeting{overflow:hidden!important;min-height:100dvh!important;}
+  .stage:not(.pinned){
+    display:flex!important;
+    flex-direction:column!important;
+    width:100%!important;
+    height:calc(100dvh - 68px)!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow:hidden!important;
+    padding:8px!important;
+    gap:8px!important;
+  }
+  .stage:not(.pinned) .main-tile{flex:0 0 auto!important;}
+  .stage:not(.pinned) .thumbs{
+    flex:1 1 auto!important;
+    height:auto!important;
+    min-height:120px!important;
+    max-height:none!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    overscroll-behavior:contain!important;
+    -webkit-overflow-scrolling:touch!important;
+    touch-action:pan-y!important;
+    align-content:start!important;
+  }
+  .stage:not(.pinned) .meeting-controls{flex:0 0 auto!important;}
+  .stage:not(.pinned) .host-note{flex:0 0 auto!important;max-height:34px;overflow:auto;}
+}
+@media (min-width:701px) and (max-width:1100px){
+  .stage:not(.pinned) .thumbs{grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-auto-rows:110px!important;}
+  .stage:not(.pinned) .thumb{height:110px!important;}
+}
+@media (max-width:700px){
+  .stage:not(.pinned){height:calc(100dvh - 60px)!important;}
+  .stage:not(.pinned) .thumbs{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:104px!important;gap:8px!important;}
+  .stage:not(.pinned) .thumb{height:104px!important;}
+}
+@media (max-width:480px){
+  .stage:not(.pinned){height:calc(100dvh - 58px)!important;}
+  .stage:not(.pinned) .thumbs{grid-auto-rows:96px!important;}
+  .stage:not(.pinned) .thumb{height:96px!important;}
+}
+@media (max-width:700px){
+  .security-toggle{align-items:stretch;flex-direction:column}
+  .room-security-row{grid-template-columns:1fr;}
+  .room-security-row .small{width:100%}
+}

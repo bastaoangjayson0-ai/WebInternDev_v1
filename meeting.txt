@@ -1,0 +1,577 @@
+function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setMic,setSharing,setPinned,onLeave,onEnd,setToast}){
+ const [connection,setConnection]=useState('connecting');
+ const [participants,setParticipants]=useState([]);
+ const [localTracks,setLocalTracks]=useState([]);
+ const [screenTrack,setScreenTrack]=useState(null);
+ const [remoteScreenTrack,setRemoteScreenTrack]=useState(null);
+ const [screenAspect,setScreenAspect]=useState(16/9);
+ const [screenFullscreen,setScreenFullscreen]=useState(false);
+ const [screenEpoch,setScreenEpoch]=useState(0);
+ const [chat,setChat]=useState([]);
+ const [message,setMessage]=useState('');
+ const [micError,setMicError]=useState('');
+ const [chatReady,setChatReady]=useState(false);
+ const [chatError,setChatError]=useState('');
+ const [reactionPicker,setReactionPicker]=useState(false);
+ const [reactions,setReactions]=useState([]);
+ const [activeSpeakerIds,setActiveSpeakerIds]=useState([]);
+ const [interactivePicker,setInteractivePicker]=useState(false);
+ const [selectedInteractiveKind,setSelectedInteractiveKind]=useState('sheeeshhh');
+ const [interactiveEffects,setInteractiveEffects]=useState([]);
+ const [emoteCooldown,setEmoteCooldown]=useState(0);
+ const emoteCooldownTimerRef=useRef(null);
+ const remoteEmoteCooldownRef=useRef(new Map());
+  const liveRoomRef=useRef(null);
+ const chatEndRef=useRef(null);
+ const seenChatIdsRef=useRef(new Set());
+ const seenInteractiveIdsRef=useRef(new Set());
+ const mounted=useRef(true);
+ const screenTrackRef=useRef(null);
+ const mainTileRef=useRef(null);
+ const resetScreenView=()=>{
+   // Fully clear both local and remote references. This is important when a
+   // screen-share track is stopped and then started again: LiveKit may deliver
+   // publication events asynchronously, so simply hiding the old video can
+   // leave a stale black frame behind.
+   setPinned(false);
+   setSharing(false);
+   screenTrackRef.current=null;
+   setScreenTrack(null);
+   setRemoteScreenTrack(null);
+   setScreenAspect(16/9);
+   setScreenEpoch(v=>v+1);
+ };
+ const isUsableScreenTrack=(track)=>{
+   if(!track)return false;
+   const media=track.mediaStreamTrack;
+   return !media || media.readyState!=='ended';
+ };
+ const wsUrlHint=import.meta.env.VITE_LIVEKIT_URL || '';
+ const MICROPHONE_CAPTURE_OPTIONS={echoCancellation:true,noiseSuppression:true,autoGainControl:false,channelCount:1,latency:0.02};
+
+ useEffect(()=>{
+   mounted.current=true;
+   let liveRoom;
+   const connect=async()=>{
+     try{
+       const resp=await fetch('/api/livekit-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({roomName:room.id,participantName:name,role})});
+       const data=await resp.json();
+       if(!resp.ok) throw new Error(data.error||data.detail||`Token endpoint returned HTTP ${resp.status}.`);
+       const {Room,RoomEvent}=await import('livekit-client');
+       liveRoom=new Room({adaptiveStream:false,dynacast:false,autoSubscribe:true});
+       liveRoomRef.current=liveRoom;
+       const refresh=()=>{
+         if(!mounted.current)return;
+         const list=[];
+         let activeRemoteScreen=null;
+         liveRoom.remoteParticipants.forEach(p=>{
+           try{p.setVolume?.(REMOTE_AUDIO_VOLUME)}catch{}
+           const screenPub=Array.from(p.videoTrackPublications?.values?.()||[]).find(pub=>
+             (pub.source==='screen_share' || pub.source==='screenShare') && pub.track
+           );
+           if(screenPub?.track && isUsableScreenTrack(screenPub.track)) {
+             try { screenPub.setSubscribed?.(true); screenPub.setVideoQuality?.(2); } catch {}
+             activeRemoteScreen=screenPub.track;
+           }
+           list.push(p);
+         });
+         setParticipants(list);
+         setRemoteScreenTrack(activeRemoteScreen);
+       };
+       const setRemoteScreen=(track,publication,participant)=>{
+         if(!mounted.current)return;
+         const isScreen=publication?.source==='screen_share' || publication?.source==='screenShare';
+         if(isScreen) {
+           try { publication?.setSubscribed?.(true); publication?.setVideoQuality?.(2); } catch {}
+           setRemoteScreenTrack(track || null);
+           try{participant?.setVolume?.(REMOTE_AUDIO_VOLUME)}catch{}
+         }
+       };
+       liveRoom.on(RoomEvent.ConnectionStateChanged,(state)=>setConnection(String(state).toLowerCase()));
+       if(RoomEvent.ActiveSpeakersChanged) liveRoom.on(RoomEvent.ActiveSpeakersChanged,(speakers)=>{
+         if(!mounted.current)return;
+         // Keep both identity and SID so the highlight still works when a
+         // browser/device exposes one identifier but not the other.
+         const ids=[];
+         (Array.isArray(speakers)?speakers:[]).forEach(p=>{
+           const identity=String(p?.identity||'').trim();
+           const sid=String(p?.sid||'').trim();
+           if(identity)ids.push(identity);
+           if(sid)ids.push(`sid:${sid}`);
+         });
+         setActiveSpeakerIds(ids);
+       });
+       liveRoom.on(RoomEvent.ParticipantConnected,(participant)=>{
+         refresh();
+         try {
+           let participantRole='user';
+           if(participant?.metadata){
+             try { participantRole=JSON.parse(participant.metadata)?.role || 'user'; } catch {}
+           }
+           if(participantRole==='admin'){
+             setToast?.(`Admin ${participant?.name || participant?.identity || 'Admin'} is joining the meeting.`);
+           }
+         } catch {}
+       });
+       liveRoom.on(RoomEvent.ParticipantDisconnected,(participant)=>{
+         setActiveSpeakerIds(ids=>ids.filter(id=>id!==String(participant?.identity||'')));
+         refresh();
+       });
+       liveRoom.on(RoomEvent.TrackSubscribed,(track,publication,participant)=>{
+         setRemoteScreen(track,publication,participant);
+         refresh();
+       });
+       liveRoom.on(RoomEvent.TrackSubscriptionFailed,(trackSid,participant)=>{
+         console.warn('LiveKit track subscription failed:', trackSid, participant?.identity);
+         setToast?.(`Could not receive audio/video from ${participant?.name || participant?.identity || 'participant'}.`);
+       });
+       liveRoom.on(RoomEvent.TrackPublished,async(publication,participant)=>{
+         try {
+           // Be explicit: every participant is allowed to subscribe to every
+           // newly published microphone/camera/screen track. This protects
+           // against browsers/devices that don't complete the automatic
+           // subscription quickly enough.
+           if (publication && !publication.isSubscribed) await publication.setSubscribed(true);
+           if (publication?.source==='screen_share' || publication?.source==='screenShare') {
+             publication.setVideoQuality?.(2);
+           }
+         } catch(e) {
+           console.warn('Could not subscribe to newly published track:', e);
+         }
+         if(publication?.source==='screen_share' || publication?.source==='screenShare') refresh();
+       });
+       liveRoom.on(RoomEvent.TrackUnpublished,(publication)=>{
+         if(publication?.source==='screen_share' || publication?.source==='screenShare') {
+           resetScreenView();
+         }
+         refresh();
+       });
+       liveRoom.on(RoomEvent.TrackUnsubscribed,(track,publication)=>{
+         if(publication?.source==='screen_share' || publication?.source==='screenShare') {
+           resetScreenView();
+         }
+         refresh();
+       });
+       // Camera mute/unmute does not always unpublish the track. Refreshing here
+       // forces the tile to switch between live video and the avatar fallback.
+       if(RoomEvent.TrackMuted) liveRoom.on(RoomEvent.TrackMuted,refresh);
+       if(RoomEvent.TrackUnmuted) liveRoom.on(RoomEvent.TrackUnmuted,refresh);
+       liveRoom.on(RoomEvent.LocalTrackPublished,refresh);
+       liveRoom.on(RoomEvent.LocalTrackUnpublished,refresh);
+       const appendChatMessage=(message,participant,local=false)=>{
+         const text=typeof message==='string' ? message : (message?.message || message?.text || message?.content);
+         const id=(typeof message==='object' && message?.id) ? message.id : crypto.randomUUID();
+         if(typeof text!=='string' || !text.trim() || seenChatIdsRef.current.has(id)) return;
+         seenChatIdsRef.current.add(id);
+         const sender=local ? name : (participant?.name || participant?.identity || 'Participant');
+         setChat(c=>c.concat({id,name:sender,text:text.trim(),local}));
+       };
+       liveRoom.on(RoomEvent.ChatMessage,(chatMessage,participant)=>{
+         try{ appendChatMessage(chatMessage,participant,participant?.identity===liveRoom.localParticipant.identity); }
+         catch(err){ console.warn('LiveKit chat event failed:',err); }
+       });
+       // Fallback for older LiveKit builds/tokens that do not expose chatMessage.
+       liveRoom.on(RoomEvent.DataReceived,(payload,participant,kind,topic)=>{
+         try{
+           const text = typeof payload === 'string' ? payload : new TextDecoder().decode(payload);
+           const msg=JSON.parse(text);
+           if(topic==='system' && msg?.type==='admin_joining'){
+             setToast?.(`Admin ${msg.name || 'Admin'} is joining the meeting.`);
+             return;
+           }
+           // Accept reactions with or without a LiveKit topic for compatibility.
+           if(msg?.type==='pin_state'){
+             const isPinned=Boolean(msg.pinned);
+             setPinned(isPinned);
+             const hostName=msg.hostName || participant?.name || participant?.identity || 'Host';
+             setToast?.(isPinned ? `${hostName} pinned the shared screen for everyone.` : `${hostName} unpinned the shared screen for everyone.`);
+             return;
+           }
+           if(msg?.type==='reaction' && msg.emoji){
+             const id=msg.id||crypto.randomUUID();
+             setReactions(r=>r.some(x=>x.id===id)?r:r.concat({id,emoji:msg.emoji,name:participant?.name||participant?.identity||'Participant',seed:msg.seed||Math.random()}));
+             setTimeout(()=>setReactions(r=>r.filter(x=>x.id!==id)),3600);
+             return;
+           }
+           if(msg?.type==='interactive_emote' && (msg.kind==='sheeeshhh' || msg.kind==='faaah')){
+             const senderId=String(participant?.identity || msg.senderId || msg.targetId || '');
+             const now=Date.now();
+             const lastRemote=remoteEmoteCooldownRef.current.get(senderId)||0;
+             // Enforce the 5-second cooldown per participant for every emote kind.
+             if(senderId && now-lastRemote < 5000) return;
+             if(senderId) remoteEmoteCooldownRef.current.set(senderId,now);
+             const id=msg.id||crypto.randomUUID();
+             const targetId=String(msg.targetId || senderId || '');
+             const kind=msg.kind==='faaah'?'faaah':'sheeeshhh';
+             if(targetId){
+               setInteractiveEffects(list=>list.some(x=>x.id===id)?list:list.concat({id,targetId,targetName:msg.targetName||participant?.name||participant?.identity||'Participant',kind}));
+               playInteractiveSound(kind);
+               const duration=kind==='faaah'?2300:2600;
+               setTimeout(()=>setInteractiveEffects(list=>list.filter(x=>x.id!==id)),duration);
+             }
+             return;
+           }
+           if(topic && topic!=='chat') return;
+           if(msg?.type==='chat' && typeof msg.text==='string') appendChatMessage({id:msg.id,message:msg.text},participant,false);
+         }catch(err){ /* ignore non-chat data */ }
+       });
+       liveRoom.on(RoomEvent.LocalTrackPublished,()=>{ if(mounted.current) setChatReady(true); refresh(); });
+       liveRoom.on(RoomEvent.LocalTrackUnpublished,refresh);
+       liveRoom.on(RoomEvent.LocalTrackMuted,(publication)=>{
+         if(mounted.current && publication?.source==='microphone') setMic(false);
+         refresh();
+       });
+       liveRoom.on(RoomEvent.LocalTrackUnmuted,(publication)=>{
+         if(mounted.current && publication?.source==='microphone') setMic(true);
+         refresh();
+       });
+       await liveRoom.connect(data.url, data.token);
+       setConnection('connected');
+       if(role==='admin'){
+         setToast?.(`Admin ${name} is joining the meeting.`);
+         try {
+           const notice=new TextEncoder().encode(JSON.stringify({type:'admin_joining',name}));
+           await liveRoom.localParticipant.publishData(notice,{reliable:true,topic:'system'});
+         } catch(e) { console.warn('Admin join notice could not be broadcast:',e); }
+       }
+       setChatReady(true);
+       setChatError('');
+
+       // Explicitly subscribe to already-published remote tracks. This is
+       // especially important when a participant joins after someone has
+       // already enabled their microphone.
+       for (const participant of liveRoom.remoteParticipants.values()) {
+         for (const publication of participant.trackPublications.values()) {
+           try {
+             if (!publication.isSubscribed) await publication.setSubscribed(true);
+             if (publication?.source==='screen_share' || publication?.source==='screenShare') {
+               publication.setVideoQuality?.(2);
+             }
+           } catch (e) {
+             console.warn('Initial remote track subscription failed:', participant.identity, publication.source, e);
+           }
+         }
+       }
+
+       // Request microphone and camera independently. We explicitly verify that
+       // an audio input exists before asking LiveKit to publish it.
+       const tracks=[];
+       try {
+         if (!navigator.mediaDevices?.getUserMedia) throw new Error('This browser does not expose microphone access. Use HTTPS and a current browser.');
+         const devices = await navigator.mediaDevices.enumerateDevices();
+         if (!devices.some(d=>d.kind==='audioinput')) throw new Error('No microphone was detected. Connect or enable a microphone, then try again.');
+         await liveRoom.localParticipant.setMicrophoneEnabled(true, MICROPHONE_CAPTURE_OPTIONS);
+         const audioPub = Array.from(liveRoom.localParticipant.audioTrackPublications.values()).find(pub=>pub.track && (pub.source==='microphone' || pub.source==='mic'));
+         if (!audioPub?.track) throw new Error('LiveKit connected, but the microphone track was not published.');
+         if (audioPub.isMuted) await audioPub.setMuted(false);
+         if (mounted.current) { setMic(true); setMicError(''); }
+       } catch (e) {
+         console.warn('Microphone could not be enabled:', e);
+         if (mounted.current) { setMic(false); setMicError(e?.message || 'Microphone permission or device access failed.'); setToast?.('Microphone is off. Click Unmute and allow microphone access.'); }
+       }
+       try {
+         await liveRoom.localParticipant.setCameraEnabled(Boolean(camera));
+       } catch (e) {
+         console.warn('Camera could not be enabled:', e);
+         if (mounted.current) setCamera(false);
+       }
+       liveRoom.localParticipant.trackPublications.forEach(pub=>{
+         if(pub.track) tracks.push(pub.track);
+       });
+       if(mounted.current)setLocalTracks(tracks);
+       refresh();
+     }catch(e){
+       console.error(e);
+       if(mounted.current)setConnection(`error:${e.message}`);
+     }
+   };
+   connect();
+   return()=>{
+     mounted.current=false;
+     if(liveRoom){try{liveRoom.disconnect()}catch{}}
+     liveRoomRef.current=null;
+     setLocalTracks([]);
+     setScreenTrack(null);
+     setActiveSpeakerIds([]);
+   };
+ },[room.id,name,role]);
+
+ useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:'smooth'});},[chat]);
+
+ const toggleMic=async()=>{
+   const r=liveRoomRef.current;
+   if(!r){setToast?.('The meeting connection is not ready yet.');return;}
+   const next=!mic;
+   try {
+     if(next){
+       if(!navigator.mediaDevices?.getUserMedia) throw new Error('Microphone access requires HTTPS and a supported browser.');
+       const devices = await navigator.mediaDevices.enumerateDevices();
+       if(!devices.some(d=>d.kind==='audioinput')) throw new Error('No microphone was detected. Connect a microphone and try again.');
+     }
+     const pub = await r.localParticipant.setMicrophoneEnabled(next, MICROPHONE_CAPTURE_OPTIONS);
+     const audioPub = pub || Array.from(r.localParticipant.audioTrackPublications.values()).find(p=>p.track && (p.source==='microphone' || p.source==='mic'));
+     if(next && !audioPub?.track) throw new Error('Microphone permission was granted, but LiveKit did not publish the audio track.');
+     if(next && audioPub?.isMuted) await audioPub.setMuted(false);
+     setMic(next);
+     setMicError('');
+     setToast?.(next?'Microphone enabled.':'Microphone muted.');
+   } catch(e) {
+     console.error('Microphone toggle failed:',e);
+     setMic(false);
+     setMicError(e?.message || 'Microphone permission or device access failed.');
+     setToast?.(`Microphone could not be enabled: ${e?.message || 'check browser microphone permission.'}`);
+   }
+ };
+ const toggleCamera=async()=>{
+   const r=liveRoomRef.current;
+   if(!r)return;
+   const next=!camera;
+   try {
+     await r.localParticipant.setCameraEnabled(next);
+     setCamera(next);
+   } catch(e) {
+     console.error('Camera toggle failed:',e);
+     setCamera(false);
+     setToast?.('Camera permission is unavailable. You can still use the microphone and chat.');
+   }
+ };
+ const toggleScreen=async()=>{
+   const r=liveRoomRef.current;
+   if(!r||role!=='host')return;
+   const next=!sharing;
+   try{
+     // Host-only screen sharing. Keep the capture request deliberately minimal
+     // so Chrome/Edge can open the native monitor/window/tab chooser as quickly
+     // as possible. The chooser itself is controlled by the browser/OS, not the app.
+     if(next) setToast?.('Opening screen chooser… choose Entire screen or a different window/tab. This tab is blocked to prevent the recursive screen-sharing effect.');
+     const captureOptions = next ? {
+       contentHint:'detail',
+       preferCurrentTab:false,
+       selfBrowserSurface:'exclude',
+       surfaceSwitching:'include',
+       monitorTypeSurfaces:'include'
+     } : undefined;
+     const publication=await r.localParticipant.setScreenShareEnabled(
+       next,
+       captureOptions,
+       next ? {
+         source:'screen_share',
+         simulcast:false,
+         degradationPreference:'maintain-resolution',
+         screenShareEncoding:{width:1920,height:1080,maxBitrate:8000000,maxFramerate:15}
+       } : undefined
+     );
+     setSharing(next);
+     if(!next){resetScreenView();}
+     else {
+       const pub=publication || Array.from(r.localParticipant.videoTrackPublications.values()).find(p=>p.source==='screen_share' && p.track);
+       if(pub?.track){
+         screenTrackRef.current=pub.track;
+         setScreenTrack(pub.track);
+         setRemoteScreenTrack(null);
+         const media=pub.track.mediaStreamTrack;
+         if(media){
+           media.onended=()=>{
+             if(mounted.current) resetScreenView();
+           };
+         }
+       }
+       else throw new Error('The browser did not publish a screen-share track.');
+     }
+   }catch(e){console.error('Screen-share toggle failed:',e);resetScreenView();setToast?.(`Screen sharing could not start: ${e?.message || 'check browser permission.'}`);}
+ };
+ const playInteractiveSound=(kind)=>{
+   try{
+     const source=kind==='faaah'?faaahSound:sheeeshhhSound;
+     const audio=new Audio(source);
+     audio.preload='auto';audio.volume=0.9;audio.currentTime=0;
+     const playPromise=audio.play();
+     if(playPromise?.catch) playPromise.catch(()=>{});
+   }catch{}
+ };
+ const startEmoteCooldown=()=>{
+   if(emoteCooldownTimerRef.current) clearInterval(emoteCooldownTimerRef.current);
+   const endAt=Date.now()+5000;
+   const tick=()=>{
+     const remaining=Math.max(0,endAt-Date.now());
+     setEmoteCooldown(remaining);
+     if(remaining<=0){
+       clearInterval(emoteCooldownTimerRef.current);
+       emoteCooldownTimerRef.current=null;
+     }
+   };
+   tick();
+   emoteCooldownTimerRef.current=setInterval(tick,100);
+ };
+ useEffect(()=>()=>{if(emoteCooldownTimerRef.current) clearInterval(emoteCooldownTimerRef.current);},[]);
+ const sendInteractiveEmote=async(kind='sheeeshhh')=>{
+   if(emoteCooldown>0) return;
+   const r=liveRoomRef.current;
+   if(!r?.localParticipant || r.state!=='connected'){
+     setToast?.('Emote is waiting for the meeting connection.');
+     return;
+   }
+   const safeKind=kind==='faaah'?'faaah':'sheeeshhh';
+   startEmoteCooldown();
+   setSelectedInteractiveKind(safeKind);
+   setInteractivePicker(false);
+   const localId=String(r.localParticipant.identity||`local-${name}`);
+   const id=crypto.randomUUID();
+   const item={id,targetId:localId,targetName:name||'Participant',kind:safeKind};
+   setInteractiveEffects(list=>list.concat(item));
+   playInteractiveSound(safeKind);
+   setTimeout(()=>setInteractiveEffects(list=>list.filter(x=>x.id!==id)),safeKind==='faaah'?2300:2600);
+   const payload=new TextEncoder().encode(JSON.stringify({type:'interactive_emote',id,targetId:localId,targetName:name||'Participant',kind:safeKind,senderId:localId}));
+   try{
+     await r.localParticipant.publishData(payload,{reliable:true,topic:'interactive-emote'});
+   }catch(firstError){
+     try{await r.localParticipant.publishData(payload,{reliable:true});}
+     catch(secondError){console.warn('Interactive emote broadcast failed',firstError,secondError);setToast?.('Emote played here, but could not be sent to everyone.');}
+   }
+ };
+ const broadcastPinState=async(nextPinned)=>{
+   const r=liveRoomRef.current;
+   setPinned(nextPinned);
+   const hostName=name||'Host';
+   setToast?.(nextPinned ? 'Shared screen pinned for everyone.' : 'Shared screen unpinned for everyone.');
+   if(!r?.localParticipant || r.state!=='connected') return;
+   const payload=new TextEncoder().encode(JSON.stringify({type:'pin_state',pinned:Boolean(nextPinned),hostName}));
+   try{
+     await r.localParticipant.publishData(payload,{reliable:true,topic:'meeting-state'});
+   }catch(firstError){
+     try{await r.localParticipant.publishData(payload,{reliable:true});}
+     catch(secondError){console.warn('Pin state broadcast failed:',firstError,secondError);setToast?.('Pin changed on your screen, but could not be synchronized to everyone.');}
+   }
+ };
+ const REACTIONS=['😀','😂','😍','😎','👏','👍','❤️','🔥','🎉','😮'];
+ const sendReaction=async(emoji)=>{
+   const r=liveRoomRef.current;
+   const id=crypto.randomUUID();
+   const seed=Math.random();
+   const item={id,emoji,name,seed};
+   setReactions(list=>list.some(x=>x.id===id)?list:list.concat(item));
+   setTimeout(()=>setReactions(list=>list.filter(x=>x.id!==id)),3600);
+   setReactionPicker(false);
+   if(!r?.localParticipant){setToast?.('Reaction sent locally. Connecting to others…');return;}
+   const payload=new TextEncoder().encode(JSON.stringify({type:'reaction',id,emoji,seed}));
+   try{ await r.localParticipant.publishData(payload,{reliable:true,topic:'reaction'}); }
+   catch(firstError){
+     try{ await r.localParticipant.publishData(payload,{reliable:true}); }
+     catch(secondError){console.warn('Reaction broadcast failed:',firstError,secondError);setToast?.('Reaction is visible here, but could not be sent to others.');}
+   }
+ };
+ const INTERACTIVE_EMOTES=[
+   {kind:'sheeeshhh',label:'SHEEESHHH',image:sheeeshhhEmote,description:'Purple shout • sound + glow'},
+   {kind:'faaah',label:'FAAAAH!',image:faaahEmote,description:'Green panic • sound + burst'}
+ ];
+ const selectedInteractive=INTERACTIVE_EMOTES.find(e=>e.kind===selectedInteractiveKind)||INTERACTIVE_EMOTES[0];
+ const sendChat=async(e)=>{
+   e?.preventDefault();
+   const text=message.trim();
+   const r=liveRoomRef.current;
+   if(!text)return;
+   if(!r || r.state!=='connected'){setChatError('Chat is waiting for the meeting connection.');setToast?.('Chat is not connected yet.');return;}
+   try {
+     let sent;
+     if(typeof r.localParticipant.sendChatMessage==='function'){
+       sent=await r.localParticipant.sendChatMessage(text,{topic:'chat'});
+     } else {
+       const id=crypto.randomUUID();
+       const data=new TextEncoder().encode(JSON.stringify({type:'chat',id,text}));
+       await r.localParticipant.publishData(data,{reliable:true,topic:'chat'});
+       sent={id,message:text};
+     }
+     const localText=typeof sent==='string' ? sent : (sent?.message || sent?.text || sent?.content || text);
+     const localId=(typeof sent==='object' && sent?.id) ? sent.id : crypto.randomUUID();
+     if (localText && !seenChatIdsRef.current.has(localId)) {
+       seenChatIdsRef.current.add(localId);
+       setChat(c=>c.concat({id:localId,name,text:localText.trim(),local:true}));
+     }
+     setMessage('');
+     setChatError('');
+   } catch(err) {
+     console.error('Chat send failed:',err);
+     setChatError(err?.message || 'Chat message could not be sent.');
+     setToast?.(`Chat message could not be sent: ${err?.message || 'check the meeting connection.'}`);
+   }
+ };
+ const trackForParticipant=(participant,source)=>{
+   if(!participant)return null;
+   const pubs=Array.from(participant.videoTrackPublications.values());
+   return pubs.find(p=>p.source===source && p.track)?.track||null;
+ };
+ const localParticipant=liveRoomRef.current?.localParticipant||null;
+ const allParticipants=[{local:true,participant:localParticipant,name,role},...participants.map(p=>({local:false,participant:p,name:p.name||p.identity,role:p.metadata?(()=>{try{return JSON.parse(p.metadata).role}catch{return 'user'}})():'user'}))];
+ // Keep the original participant order as the stable fallback. Active speakers
+ // and active emotes temporarily move to the front, then automatically return
+ // to their original positions when the activity ends.
+ const orderedParticipants=allParticipants.map((p,index)=>{
+   const identity=String(p.participant?.identity||'').trim();
+   const sid=String(p.participant?.sid||'').trim();
+   const targetId=identity||`local-${name}`;
+   const effect=interactiveEffects.find(x=>x.targetId===targetId);
+   const speaking=activeSpeakerIds.includes(targetId)||activeSpeakerIds.includes(sid?`sid:${sid}`:'');
+   return {...p,index,targetId,effect,speaking,priority:(effect?2:0)+(speaking?1:0)};
+ }).sort((a,b)=>b.priority-a.priority||a.index-b.index);
+ const screenFromRemote=(isUsableScreenTrack(remoteScreenTrack)?remoteScreenTrack:null) || participants.map(p=>trackForParticipant(p,'screen_share')||trackForParticipant(p,'screenShare')).find(isUsableScreenTrack) || null;
+ const mainScreen=isUsableScreenTrack(screenTrack)?screenTrack:screenFromRemote;
+ const remoteScreenActive=Boolean(screenFromRemote);
+ const showingScreen=Boolean(mainScreen);
+ const toggleScreenFullscreen=()=>{
+   // App fullscreen avoids the browser/Android instructional banner.
+   setScreenFullscreen(v=>!v);
+ };
+ useEffect(()=>{
+   const onKey=(event)=>{if(event.key==='Escape') setScreenFullscreen(false);};
+   window.addEventListener('keydown',onKey);
+   return()=>window.removeEventListener('keydown',onKey);
+ },[]);
+ return <section className="meeting">
+   <div className="meeting-head"><div><b>{room.title}</b><span className="muted"> • {room.participants}/50</span></div><span className={connection==='connected'?'live':'connection-pill'}>{connection==='connected'?'● LIVE':connection==='connecting'?'Connecting…':connection.startsWith('error:')?'Connection error':'Reconnecting…'}</span></div>
+   {connection.startsWith('error:')&&<div className="meeting-error">{connection.slice(6)}<button className="ghost small" onClick={()=>window.location.reload()}>Reload</button></div>}
+   <div className={`stage ${pinned&&mainScreen?'pinned':''} ${showingScreen?'screen-active':''}`}>
+     <div ref={mainTileRef} className={`main-tile ${screenFullscreen?'app-fullscreen':''}`} style={showingScreen?{'--screen-aspect':screenAspect}:undefined}>
+       {showingScreen ? <LiveVideo key={`screen-${screenEpoch}-${mainScreen?.sid||mainScreen?.mediaStreamTrack?.id||'active'}`} track={mainScreen} className="screen-video" onAspectRatio={setScreenAspect} /> :
+         <div key={`placeholder-${screenEpoch}`} className="screen-share-placeholder" role="status" aria-live="polite">
+           <span>Screen Share</span>
+         </div>
+       }
+       <div className="reaction-layer" aria-live="polite">{reactions.map((r,i)=><div className="floating-reaction" style={{left:`${8+((i*19+Math.floor((r.seed||0)*31))%82)}%`,animationDelay:`${(i%3)*65}ms`}} key={r.id} title={`${r.name}: ${r.emoji}`}><span className="reaction-glow"/><span className="reaction-ring"/><span className="reaction-particle p1"/><span className="reaction-particle p2"/><span className="reaction-particle p3"/><span className="reaction-emoji">{r.emoji}</span></div>)}</div>
+       {showingScreen&&<button type="button" className="screen-fit-button" aria-label={screenFullscreen?'Exit full screen':'Full screen shared screen'} title={screenFullscreen?'Exit full screen':'Full screen'} onClick={toggleScreenFullscreen}><MeetingIcon type={screenFullscreen?'fullscreenExit':'fullscreen'}/></button>}
+     </div>
+     <div className="thumbs" aria-label="Meeting participants">{orderedParticipants.map((p,i)=><ParticipantTile key={p.participant?.identity||p.participant?.sid||`${p.name}-${p.index}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={p.effect} isSpeaking={p.speaking}/>)}</div>
+   </div>
+   <div className="remote-audio" aria-hidden="true">{participants.map(p=><RemoteAudio key={p.identity} participant={p}/>)}</div>
+   {micError&&<div className="meeting-status-error">Microphone: {micError} <button className="ghost small" onClick={toggleMic}>Try microphone again</button></div>}
+   <div className="audio-note">Remote participant audio playback is set to 100%. You can also use your phone/computer volume buttons.</div>
+   <div className="meeting-bottom">
+     <div className="meeting-controls">
+       <button aria-label={mic?'Mute microphone':'Unmute microphone'} title={mic?'Mute microphone':'Unmute microphone'} className={mic?'control active is-mic':'control is-mic'} onClick={toggleMic}><span className="meeting-symbol"><MeetingIcon type={mic?'mic':'mute'}/></span><span>{mic?'Mute':'Unmute'}</span></button>
+       <button aria-label={camera?'Turn camera off':'Turn camera on'} title={camera?'Turn camera off':'Turn camera on'} className={camera?'control active is-camera':'control is-camera'} onClick={toggleCamera}><span className="meeting-symbol"><MeetingIcon type={camera?'camera':'cameraOff'}/></span><span>Camera</span></button>
+       {role==='host'&&<>
+         <button aria-label={sharing?'Stop sharing screen':'Share screen'} title={sharing?'Stop sharing screen':'Share screen'} className={sharing?'control active is-sharing':'control is-sharing'} onClick={toggleScreen}><span className="meeting-symbol"><MeetingIcon type={sharing?'stopScreen':'screen'}/></span><span>{sharing?'Stop share':'Share'}</span></button>
+         <button aria-label={pinned?'Unpin screen for everyone':'Pin screen for everyone'} title={pinned?'Unpin screen for everyone':'Pin screen for everyone'} disabled={!showingScreen} className={pinned?'control active':'control'} onClick={()=>broadcastPinState(!pinned)}><span className="meeting-symbol"><MeetingIcon type="pin"/></span><span>{pinned?'Unpin':'Pin'}</span></button>
+       </>}
+       <div className="reaction-control-wrap"><button aria-label="Send reaction" title="Reactions" className={reactionPicker?'control active react-open':'control react-open'} onClick={()=>{setReactionPicker(v=>!v);setInteractivePicker(false)}}><span className="meeting-symbol"><MeetingIcon type="react"/></span><span>React</span></button>{reactionPicker&&<div className="reaction-picker">{REACTIONS.map(emoji=><button type="button" key={emoji} onClick={()=>sendReaction(emoji)} aria-label={`Send ${emoji}`}>{emoji}</button>)}</div>}</div>
+       <div className="interactive-control-wrap">
+         <button type="button" aria-label={emoteCooldown>0?`Emote cooldown ${Math.ceil(emoteCooldown/1000)} seconds`:'Choose an emote'} title={emoteCooldown>0?`Wait ${Math.ceil(emoteCooldown/1000)}s before using another emote`:'Choose an emote'} disabled={emoteCooldown>0} className={`control interactive-open${emoteCooldown>0?' cooldown':''}`} onClick={(e)=>{e.stopPropagation();setInteractivePicker(v=>!v);setReactionPicker(false)}}><span className="meeting-symbol interactive-selected-icon"><img src={selectedInteractive.image} alt={selectedInteractive.label}/></span><span>{emoteCooldown>0?`Emote ${Math.ceil(emoteCooldown/1000)}s`:'Emote'}</span></button>
+         {interactivePicker&&emoteCooldown<=0&&<div className="interactive-picker" role="menu" aria-label="Choose an emote">
+           <div className="interactive-picker-head"><strong>Choose Emote</strong><button type="button" aria-label="Close emote picker" onClick={()=>setInteractivePicker(false)}>×</button></div>
+           <p className="interactive-picker-hint">Each emote has its own sound and visual effect.</p>
+           {INTERACTIVE_EMOTES.map(emote=><button type="button" role="menuitem" key={emote.kind} className={`interactive-picker-item${selectedInteractive.kind===emote.kind?' selected':''}`} onClick={()=>sendInteractiveEmote(emote.kind)}>
+             <img src={emote.image} alt=""/><strong>{emote.label}</strong><small>{emote.description}</small>
+           </button>)}
+         </div>}
+       </div>
+       <button aria-label="Open chat" title="Chat" className="control" onClick={()=>document.getElementById('chat-panel')?.classList.toggle('open')}><span className="meeting-symbol"><MeetingIcon type="chat"/></span><span>Chat</span></button>
+       <button aria-label="Open participants" title="Participants" className="control" onClick={()=>document.getElementById('participants-panel')?.classList.toggle('open')}><span className="meeting-symbol"><MeetingIcon type="people"/></span><span>People</span></button>
+       {role==='host'?<button aria-label="End meeting" title="End meeting" className="danger control end-control" onClick={onEnd}><span className="meeting-symbol"><MeetingIcon type="end"/></span><span>End</span></button>:<button aria-label="Leave meeting" title="Leave meeting" className="danger control end-control" onClick={onLeave}><span className="meeting-symbol"><MeetingIcon type="leave"/></span><span>Leave</span></button>}
+     </div>
+     {role==='host'&&<div className="host-note">Host controls: screen share + pin/unpin. Only the Host can share and pin the screen. Click Share to open the browser's native chooser: select an entire screen, an open window, or a browser tab. You can share a PDF, PowerPoint, Excel sheet, Word file, website, or any other content visible in the selected window/tab. The app uses a minimal capture request to avoid delaying the chooser; the browser/OS controls how quickly its native chooser appears.</div>}
+   </div>
+   <aside id="chat-panel" className="meeting-side-panel"><div className="side-head"><b>Chat</b><button onClick={()=>document.getElementById('chat-panel')?.classList.remove('open')}>×</button></div><div className="chat-list">{chat.length?chat.map(m=><div className={m.local?'chat-msg local':'chat-msg'} key={m.id}><b>{m.name}</b><span>{m.text}</span></div>):<p className="muted">{chatReady?'No messages yet.':'Connecting chat…'}</p>}<div ref={chatEndRef}/></div>{chatError&&<div className="chat-error">{chatError}</div>}<form className="chat-form" onSubmit={sendChat}><input value={message} onChange={e=>setMessage(e.target.value)} placeholder={chatReady?'Type a message…':'Connecting chat…'} disabled={!chatReady}/><button className="primary" type="submit" disabled={!chatReady||!message.trim()}>Send</button></form></aside>
+   <aside id="participants-panel" className="meeting-side-panel participants-panel"><div className="side-head"><b>Participants ({participants.length+1})</b><button onClick={()=>document.getElementById('participants-panel')?.classList.remove('open')}>×</button></div><div className="participant-list"><div className="participant-row"><img src={avatar}/><span>{name} <small>• {role}</small></span></div>{participants.map(p=><div className="participant-row" key={p.identity}><img src={avatar}/><span>{p.name||p.identity}</span></div>)}</div></aside>
+ </section>
+}
+function RemoteAudio({participant}){
+ const audioPubs=participant?Array.from(participant.audioTrackPublications?.values?.()||[]).filter(p=>p.track && (p.source==='microphone' || p.source==='mic')):[];
