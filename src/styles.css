@@ -362,3 +362,18 @@
 @keyframes slap-burst{0%{opacity:0;transform:scale(.2)}45%{opacity:1;transform:scale(4.2)}100%{opacity:0;transform:scale(7)}}
 @keyframes slap-target-shake{0%,100%{transform:translateX(0)}18%{transform:translateX(9px) rotate(.6deg)}35%{transform:translateX(-11px) rotate(-.6deg)}55%{transform:translateX(7px)}75%{transform:translateX(-4px)}}
 @media(max-width:700px){.interactive-emote-choice.slap-choice span{display:none}.interactive-emote-choice.slap-choice{min-width:0}.slap-hand{font-size:52px}.slap-impact{font-size:34px}}
+
+/* v1.7.4: transparent SHEEESHHH sticker + exact avatar anchor */
+.participant-avatar-fallback{position:relative;isolation:isolate}
+.participant-avatar-fallback .participant-emote-effect{position:absolute;left:29px;top:29px;width:142px;height:142px;transform:translate(-50%,-50%);z-index:90;display:grid;place-items:center;overflow:visible;pointer-events:none}
+.participant-avatar-fallback .participant-emote-effect img{width:132px;height:auto;max-height:142px;object-fit:contain;border-radius:0;background:transparent;mix-blend-mode:normal}
+.participant-avatar-fallback .participant-emote-effect .emote-energy{width:120px;aspect-ratio:1}
+.participant-avatar-fallback .participant-emote-effect .emote-text{top:-20px;font-size:18px;white-space:nowrap}
+/* Camera-on tiles remain centered on the participant tile. */
+.thumb-video~.participant-emote-effect{left:50%;top:50%;transform:translate(-50%,-50%)}
+@media(max-width:700px){
+ .participant-avatar-fallback .participant-emote-effect{left:22px;top:22px;width:112px;height:112px}
+ .participant-avatar-fallback .participant-emote-effect img{width:106px;max-height:112px}
+ .participant-avatar-fallback .participant-emote-effect .emote-energy{width:96px}
+ .participant-avatar-fallback .participant-emote-effect .emote-text{top:-15px;font-size:14px}
+}
