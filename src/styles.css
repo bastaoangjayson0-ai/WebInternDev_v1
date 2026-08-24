@@ -337,3 +337,44 @@
 .thumb-name{display:none}
 .thumb:has(.thumb-video) .thumb-name{display:block;position:absolute;left:8px;right:8px;bottom:7px;z-index:2;padding:3px 6px;border-radius:6px;background:rgba(0,0,0,.48);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .thumb:has(.thumb-video)>span:not(.thumb-name){display:none}
+
+
+/* v1.6.9 — Meeting control motion */
+.meeting-controls .control{position:relative;isolation:isolate;will-change:transform}
+.meeting-controls .control:focus-visible{outline:3px solid rgba(87,205,225,.5);outline-offset:3px}
+.meeting-controls .control::after{content:"";position:absolute;inset:50%;width:8px;height:8px;border-radius:50%;background:currentColor;opacity:0;transform:translate(-50%,-50%) scale(.2);pointer-events:none;z-index:-1}
+.meeting-controls .control:active:not(:disabled){transform:translateY(1px) scale(.94);transition-duration:.06s}
+.meeting-controls .control:active:not(:disabled)::after{animation:controlRipple .42s ease-out forwards}
+.meeting-controls .control .meeting-symbol{transition:transform .2s cubic-bezier(.2,.9,.25,1.3),background .2s ease,color .2s ease}
+.meeting-controls .control:hover:not(:disabled) .meeting-symbol{animation:iconFloat .7s ease-in-out infinite alternate}
+.meeting-controls .control.is-mic.active .meeting-symbol{animation:softPulse 1.8s ease-in-out infinite}
+.meeting-controls .control.is-camera.active .meeting-symbol{animation:cameraGlow 1.8s ease-in-out infinite}
+.meeting-controls .control.is-sharing.active{animation:sharePulse 1.65s ease-in-out infinite}
+.meeting-controls .control.is-sharing.active .meeting-symbol{animation:screenPop 1.2s ease-in-out infinite}
+.meeting-controls .control.react-open .meeting-symbol{animation:reactPop .38s cubic-bezier(.18,1.45,.45,1) both}
+.meeting-controls .control.end-control:hover:not(:disabled){animation:dangerShake .38s ease-in-out both}
+@keyframes controlRipple{0%{opacity:.25;transform:translate(-50%,-50%) scale(.2)}100%{opacity:0;transform:translate(-50%,-50%) scale(16)}}
+@keyframes iconFloat{to{transform:translateY(-2px) scale(1.06)}}
+@keyframes softPulse{50%{transform:scale(1.09);filter:drop-shadow(0 0 5px rgba(255,255,255,.45))}}
+@keyframes cameraGlow{50%{transform:scale(1.08);box-shadow:0 0 0 5px rgba(255,255,255,.09)}}
+@keyframes sharePulse{50%{transform:translateY(-2px) scale(1.025);box-shadow:0 12px 30px rgba(17,168,189,.38)}}
+@keyframes screenPop{50%{transform:scale(1.12) rotate(-2deg)}}
+@keyframes reactPop{0%{transform:scale(.65) rotate(-10deg)}70%{transform:scale(1.16) rotate(5deg)}100%{transform:scale(1) rotate(0)}}
+@keyframes dangerShake{20%,60%{transform:translateX(-2px)}40%,80%{transform:translateX(2px)}100%{transform:translateX(0)}}
+@media (prefers-reduced-motion:reduce){.meeting-controls .control,.meeting-controls .control *{animation:none!important;transition:none!important}}
+
+/* v1.7.0 Participant Interactive Emote: long-press a participant, then SHEEESHHH */
+.interactive-target{position:relative;touch-action:manipulation;overflow:visible}
+.interactive-target:active{transform:scale(.985)}
+.interactive-emote-menu{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);z-index:90;display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:18px;background:rgba(18,25,32,.96);border:1px solid rgba(255,255,255,.16);box-shadow:0 18px 40px rgba(0,0,0,.45);animation:interactive-menu-in .22s cubic-bezier(.2,1.5,.4,1)}
+.interactive-emote-choice{border:0;background:transparent;color:#fff;display:flex;align-items:center;gap:7px;font-weight:800;letter-spacing:.02em;cursor:pointer;padding:4px 7px;border-radius:13px}.interactive-emote-choice:hover{background:rgba(255,255,255,.1)}
+.interactive-emote-choice img{width:44px;height:44px;object-fit:contain;border-radius:10px}.interactive-emote-close{border:0;background:rgba(255,255,255,.09);color:#fff;width:26px;height:26px;border-radius:50%;cursor:pointer}
+.participant-emote-effect{position:absolute;inset:-48% -20% auto;z-index:80;pointer-events:none;display:grid;place-items:center;transform-origin:50% 70%;animation:sheeeshhh-pop 2.6s cubic-bezier(.2,.9,.25,1) forwards}.participant-emote-effect img{width:min(190px,68vw);max-width:none;filter:drop-shadow(0 14px 18px rgba(0,0,0,.55));animation:sheeeshhh-bob .62s ease-in-out 3}.emote-text{position:absolute;top:-18px;z-index:3;font-weight:1000;font-size:clamp(16px,2.4vw,32px);letter-spacing:.08em;color:#fff;text-shadow:0 3px 0 #35196e,0 0 18px #a76cff;transform:rotate(-6deg);animation:sheeeshhh-text .55s cubic-bezier(.15,1.8,.35,1) both}.emote-energy{position:absolute;width:75%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(172,104,255,.62),rgba(84,32,220,.25) 45%,transparent 70%);filter:blur(7px);animation:sheeeshhh-energy 1.1s ease-out both}.interactive-hit{animation:target-nod .48s ease-out .28s}
+@keyframes interactive-menu-in{from{opacity:0;transform:translateX(-50%) translateY(10px) scale(.75)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+@keyframes sheeeshhh-pop{0%{opacity:0;transform:scale(.15) translateY(25px)}12%{opacity:1;transform:scale(1.13) translateY(-8px)}28%{transform:scale(.96) translateY(0)}76%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.82) translateY(-18px)}}
+@keyframes sheeeshhh-bob{0%,100%{transform:rotate(0) translateY(0)}35%{transform:rotate(-4deg) translateY(-7px)}70%{transform:rotate(4deg) translateY(-3px)}}
+@keyframes sheeeshhh-text{0%{opacity:0;transform:scale(.15) rotate(15deg)}70%{opacity:1;transform:scale(1.22) rotate(-8deg)}100%{transform:scale(1) rotate(-6deg)}}
+@keyframes sheeeshhh-energy{0%{opacity:0;transform:scale(.2)}30%{opacity:1}100%{opacity:0;transform:scale(1.8)}}
+@keyframes target-nod{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px) rotate(-1deg)}55%{transform:translateX(5px) rotate(1deg)}78%{transform:translateX(-2px)}}
+@media(max-width:700px){.interactive-emote-choice span{display:none}.interactive-emote-choice img{width:52px;height:52px}.participant-emote-effect{inset:-34% -35% auto}.participant-emote-effect img{width:150px}}
+@media(prefers-reduced-motion:reduce){.participant-emote-effect,.participant-emote-effect img,.interactive-hit,.emote-text,.emote-energy{animation-duration:.01ms!important;animation-iteration-count:1!important}}
