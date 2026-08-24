@@ -484,3 +484,73 @@
   .interactive-picker-item img{width:34px;height:34px}
   .interactive-picker-emoji{height:34px;font-size:26px}
 }
+
+/* v1.8.3: STRICTLY CONTAIN INTERACTIVE EMOTE INSIDE THE PARTICIPANT TILE.
+   The effect is now sized from the tile itself, never from the viewport. */
+.thumb.interactive-target{position:relative!important;overflow:hidden!important;isolation:isolate!important;contain:paint!important}
+.thumb.interactive-target .participant-emote-effect{
+  position:absolute!important;
+  inset:0!important;
+  left:0!important;
+  top:0!important;
+  width:100%!important;
+  height:100%!important;
+  max-width:none!important;
+  max-height:none!important;
+  margin:0!important;
+  padding:0!important;
+  transform:none!important;
+  overflow:hidden!important;
+  display:grid!important;
+  place-items:center!important;
+  z-index:90!important;
+  animation:contained-sheeeshhh-pop 2.6s cubic-bezier(.2,.9,.25,1) forwards!important;
+}
+.thumb.interactive-target .participant-emote-effect img{
+  width:auto!important;
+  height:auto!important;
+  max-width:68%!important;
+  max-height:68%!important;
+  object-fit:contain!important;
+  margin:0!important;
+  transform-origin:center!important;
+}
+.thumb.interactive-target .participant-emote-effect .emote-energy{
+  width:58%!important;
+  height:58%!important;
+  max-width:58%!important;
+  max-height:58%!important;
+}
+.thumb.interactive-target .participant-emote-effect .emote-burst{
+  width:46%!important;
+  height:46%!important;
+  max-width:46%!important;
+  max-height:46%!important;
+}
+.thumb.interactive-target .participant-emote-effect .emote-text{
+  top:7%!important;
+  left:50%!important;
+  max-width:86%!important;
+  overflow:hidden!important;
+  text-overflow:clip!important;
+  white-space:nowrap!important;
+  font-size:clamp(9px,2.6cqw,18px)!important;
+  line-height:1!important;
+  text-align:center!important;
+}
+@keyframes contained-sheeeshhh-pop{
+  0%{opacity:0;transform:scale(.15)}
+  12%{opacity:1;transform:scale(1.05)}
+  28%{transform:scale(.96)}
+  76%{opacity:1;transform:scale(1)}
+  100%{opacity:0;transform:scale(.84)}
+}
+@media(max-width:700px){
+  .thumb.interactive-target .participant-emote-effect img{max-width:64%!important;max-height:64%!important}
+  .thumb.interactive-target .participant-emote-effect .emote-energy{width:54%!important;height:54%!important}
+  .thumb.interactive-target .participant-emote-effect .emote-text{top:9%!important;font-size:clamp(8px,2.8vw,13px)!important}
+}
+@media(max-height:560px){
+  .thumb.interactive-target .participant-emote-effect img{max-width:58%!important;max-height:58%!important}
+  .thumb.interactive-target .participant-emote-effect .emote-text{top:6%!important;font-size:9px!important}
+}
