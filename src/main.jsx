@@ -265,6 +265,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const liveRoomRef=useRef(null);
  const chatEndRef=useRef(null);
  const seenChatIdsRef=useRef(new Set());
+ const seenInteractiveIdsRef=useRef(new Set());
  const mounted=useRef(true);
  const screenTrackRef=useRef(null);
  const mainTileRef=useRef(null);
@@ -410,12 +411,16 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
              setTimeout(()=>setReactions(r=>r.filter(x=>x.id!==id)),3600);
              return;
            }
-           if(msg?.type==='interactive_emote' && msg.targetId===''+msg.targetId){
+           if(msg?.type==='interactive_emote' && msg.targetId){
              const id=msg.id||crypto.randomUUID();
-             const kind=msg.kind==='slap'?'slap':'sheeeshhh';const item={id,targetId:msg.targetId,targetName:msg.targetName||'Participant',kind};
+             // Never replay an event that this client already rendered locally.
+             if(seenInteractiveIdsRef.current.has(id)) return;
+             seenInteractiveIdsRef.current.add(id);
+             const kind=msg.kind==='slap'?'slap':'sheeeshhh';
+             const item={id,targetId:String(msg.targetId),targetName:msg.targetName||'Participant',kind};
              setInteractiveEffects(list=>list.some(x=>x.id===id)?list:list.concat(item));
              (kind==='slap'?playSlapSound:playSheeeshhhSound)();
-             setTimeout(()=>setInteractiveEffects(list=>list.filter(x=>x.id!==id)),kind==='slap'?1500:2600);
+             setTimeout(()=>{setInteractiveEffects(list=>list.filter(x=>x.id!==id));seenInteractiveIdsRef.current.delete(id)},kind==='slap'?1500:2600);
              return;
            }
            if(topic && topic!=='chat') return;
@@ -598,9 +603,17 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;const ctx=new C();const now=ctx.currentTime;const osc=ctx.createOscillator(),gain=ctx.createGain(),noise=ctx.createBufferSource(),ng=ctx.createGain();const b=ctx.createBuffer(1,Math.floor(ctx.sampleRate*.11),ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length);noise.buffer=b;osc.type='square';osc.frequency.setValueAtTime(165,now);osc.frequency.exponentialRampToValueAtTime(70,now+.13);gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.13,now+.008);gain.gain.exponentialRampToValueAtTime(.0001,now+.15);ng.gain.setValueAtTime(.18,now);ng.gain.exponentialRampToValueAtTime(.0001,now+.12);osc.connect(gain).connect(ctx.destination);noise.connect(ng).connect(ctx.destination);osc.start(now);noise.start(now);osc.stop(now+.16);noise.stop(now+.12);setTimeout(()=>ctx.close(),450)}catch{}
  };
  const sendInteractiveEmote=async(target,kind='sheeeshhh')=>{
-   if(!target||target.local)return;const id=crypto.randomUUID();const item={id,targetId:target.id,targetName:target.name||'Participant',kind};
-   setInteractiveEffects(list=>list.concat(item));(kind==='slap'?playSlapSound:playSheeeshhhSound)();setInteractiveMenu(null);setTimeout(()=>setInteractiveEffects(list=>list.filter(x=>x.id!==id)),kind==='slap'?1500:2600);
-   const r=liveRoomRef.current;if(!r?.localParticipant)return;const payload=new TextEncoder().encode(JSON.stringify({type:'interactive_emote',id,targetId:target.id,targetName:target.name||'Participant',kind}));
+   // Interactive emotes are self-only: a participant may trigger an emote on their own avatar.
+   if(!target||!target.local)return;
+   const id=crypto.randomUUID();
+   seenInteractiveIdsRef.current.add(id);
+   const item={id,targetId:String(target.id),targetName:target.name||'Participant',kind};
+   setInteractiveEffects(list=>list.concat(item));
+   (kind==='slap'?playSlapSound:playSheeeshhhSound)();
+   setInteractiveMenu(null);
+   setTimeout(()=>{setInteractiveEffects(list=>list.filter(x=>x.id!==id));seenInteractiveIdsRef.current.delete(id)},kind==='slap'?1500:2600);
+   const r=liveRoomRef.current;if(!r?.localParticipant)return;
+   const payload=new TextEncoder().encode(JSON.stringify({type:'interactive_emote',id,targetId:String(target.id),targetName:target.name||'Participant',kind}));
    try{await r.localParticipant.publishData(payload,{reliable:true,topic:'interactive-emote'})}catch(e){console.warn('Interactive emote broadcast failed',e)}
  };
  const sendReaction=async(emoji)=>{
@@ -682,7 +695,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        <div className="reaction-layer" aria-live="polite">{reactions.map((r,i)=><div className="floating-reaction" style={{left:`${8+((i*19+Math.floor((r.seed||0)*31))%82)}%`,animationDelay:`${(i%3)*65}ms`}} key={r.id} title={`${r.name}: ${r.emoji}`}><span className="reaction-glow"/><span className="reaction-ring"/><span className="reaction-particle p1"/><span className="reaction-particle p2"/><span className="reaction-particle p3"/><span className="reaction-emoji">{r.emoji}</span></div>)}</div>
        {showingScreen&&<button type="button" className="screen-fit-button" aria-label={screenFullscreen?'Exit full screen':'Full screen shared screen'} title={screenFullscreen?'Exit full screen':'Full screen'} onClick={toggleScreenFullscreen}><MeetingIcon type={screenFullscreen?'fullscreenExit':'fullscreen'}/></button>}
      </div>
-     <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=>{const target={id:p.participant?.identity||`local-${name}`,name:p.name,local:Boolean(p.local)};const effect=interactiveEffects.find(x=>x.targetId===target.id);return <ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={effect} interactiveMenu={interactiveMenu?.id===target.id} canInteract={!p.local} onHold={()=>!p.local&&setInteractiveMenu(target)} onEmote={(kind)=>!p.local&&sendInteractiveEmote(target,kind)} onCloseMenu={()=>setInteractiveMenu(null)}/>})}</div>
+     <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=>{const target={id:p.participant?.identity||`local-${name}`,name:p.name,local:Boolean(p.local)};const effect=interactiveEffects.find(x=>x.targetId===String(target.id));return <ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={effect} interactiveMenu={interactiveMenu?.id===target.id} canInteract={p.local} onHold={()=>p.local&&setInteractiveMenu(target)} onEmote={(kind)=>p.local&&sendInteractiveEmote(target,kind)} onCloseMenu={()=>setInteractiveMenu(null)}/>})}</div>
    </div>
    <div className="remote-audio" aria-hidden="true">{participants.map(p=><RemoteAudio key={p.identity} participant={p}/>)}</div>
    {micError&&<div className="meeting-status-error">Microphone: {micError} <button className="ghost small" onClick={toggleMic}>Try microphone again</button></div>}

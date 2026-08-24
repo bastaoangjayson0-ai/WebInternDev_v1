@@ -396,3 +396,7 @@
 .interactive-panel{width:min(230px,88vw);padding:12px;border-radius:18px;background:#17222c;border:1px solid rgba(255,255,255,.16);box-shadow:0 20px 50px rgba(0,0,0,.4);text-align:center;color:#fff;animation:interactive-menu-in .2s ease-out}
 .interactive-title{font-weight:800;font-size:14px;margin-bottom:8px}.sheesh-choice{border:0;width:100%;border-radius:14px;padding:7px;background:rgba(255,255,255,.07);color:#fff;display:flex;align-items:center;justify-content:center;gap:9px;cursor:pointer}.sheesh-choice img{width:58px;height:58px;object-fit:contain}.sheesh-choice span{font-weight:900;font-size:13px}.interactive-panel small{display:block;margin-top:7px;opacity:.7}
 @media(max-width:700px){.participant-avatar-anchor{min-height:92px}.participant-avatar{max-width:70px;max-height:70px}.avatar-emote{width:92px;height:92px}.avatar-emote img{width:88px;height:88px}.avatar-emote b{font-size:12px;top:-4px}}
+
+/* v1.7.6: while an interactive emote is active, replace the default avatar temporarily. */
+.thumb.interactive-hit .participant-avatar-fallback > img{opacity:0;visibility:hidden;transition:opacity .12s ease}
+.thumb.interactive-hit .participant-avatar-fallback > span{position:relative;z-index:95}
