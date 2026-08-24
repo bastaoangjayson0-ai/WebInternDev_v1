@@ -663,3 +663,64 @@ footer{background:#071017!important;color:#718994!important;border-top:1px solid
   .interactive-picker-item{grid-template-columns:48px 1fr;}
   .interactive-picker-item img{width:48px;height:48px;}
 }
+
+/* v1.9.6 — Google Meet-style active speaker + emote highlight
+   The participant tile itself is highlighted, so the effect never changes
+   the meeting grid size or pushes neighboring tiles out of place. */
+.thumb{
+  position:relative;
+  border:1px solid rgba(65,91,103,.72);
+  transition:border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.thumb.speaker-active{
+  border:2px solid #20d7b2!important;
+  box-shadow:0 0 0 2px rgba(32,215,178,.16),0 0 22px rgba(32,215,178,.28),inset 0 0 18px rgba(32,215,178,.07)!important;
+  z-index:3;
+}
+.thumb.speaker-active::after{
+  content:'Speaking';
+  position:absolute;
+  top:8px;
+  left:8px;
+  z-index:8;
+  padding:3px 7px;
+  border-radius:999px;
+  background:rgba(7,31,34,.88);
+  border:1px solid rgba(32,215,178,.6);
+  color:#72f4d6;
+  font-size:9px;
+  line-height:1;
+  font-weight:800;
+  letter-spacing:.02em;
+  pointer-events:none;
+}
+.thumb.emote-active{
+  border:2px solid #b77cff!important;
+  box-shadow:0 0 0 2px rgba(183,124,255,.16),0 0 28px rgba(183,124,255,.34),inset 0 0 20px rgba(183,124,255,.08)!important;
+  z-index:4;
+}
+.thumb.emote-active::after{
+  content:'Emote';
+  position:absolute;
+  top:8px;
+  right:8px;
+  z-index:8;
+  padding:3px 7px;
+  border-radius:999px;
+  background:rgba(24,14,38,.9);
+  border:1px solid rgba(183,124,255,.62);
+  color:#e1c9ff;
+  font-size:9px;
+  line-height:1;
+  font-weight:800;
+  pointer-events:none;
+}
+.thumb.speaker-active.emote-active{
+  border-color:#63f0d0!important;
+  box-shadow:0 0 0 2px rgba(99,240,208,.16),0 0 28px rgba(99,240,208,.32),0 0 44px rgba(183,124,255,.18)!important;
+}
+@media(max-width:700px){
+  .thumb.speaker-active::after,.thumb.emote-active::after{font-size:8px;padding:3px 6px;top:5px}
+  .thumb.speaker-active::after{left:5px}
+  .thumb.emote-active::after{right:5px}
+}

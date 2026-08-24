@@ -262,6 +262,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const [chatError,setChatError]=useState('');
  const [reactionPicker,setReactionPicker]=useState(false);
  const [reactions,setReactions]=useState([]);
+ const [activeSpeakerIds,setActiveSpeakerIds]=useState([]);
  const [interactivePicker,setInteractivePicker]=useState(false);
  const [selectedInteractiveKind,setSelectedInteractiveKind]=useState('sheeeshhh');
  const [interactiveEffects,setInteractiveEffects]=useState([]);
@@ -335,6 +336,11 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
          }
        };
        liveRoom.on(RoomEvent.ConnectionStateChanged,(state)=>setConnection(String(state).toLowerCase()));
+       if(RoomEvent.ActiveSpeakersChanged) liveRoom.on(RoomEvent.ActiveSpeakersChanged,(speakers)=>{
+         if(!mounted.current)return;
+         const ids=(Array.isArray(speakers)?speakers:[]).map(p=>String(p?.identity||'')).filter(Boolean);
+         setActiveSpeakerIds(ids);
+       });
        liveRoom.on(RoomEvent.ParticipantConnected,(participant)=>{
          refresh();
          try {
@@ -347,7 +353,10 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
            }
          } catch {}
        });
-       liveRoom.on(RoomEvent.ParticipantDisconnected,refresh);
+       liveRoom.on(RoomEvent.ParticipantDisconnected,(participant)=>{
+         setActiveSpeakerIds(ids=>ids.filter(id=>id!==String(participant?.identity||'')));
+         refresh();
+       });
        liveRoom.on(RoomEvent.TrackSubscribed,(track,publication,participant)=>{
          setRemoteScreen(track,publication,participant);
          refresh();
@@ -523,6 +532,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
      liveRoomRef.current=null;
      setLocalTracks([]);
      setScreenTrack(null);
+     setActiveSpeakerIds([]);
    };
  },[room.id,name,role]);
 
@@ -757,7 +767,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        <div className="reaction-layer" aria-live="polite">{reactions.map((r,i)=><div className="floating-reaction" style={{left:`${8+((i*19+Math.floor((r.seed||0)*31))%82)}%`,animationDelay:`${(i%3)*65}ms`}} key={r.id} title={`${r.name}: ${r.emoji}`}><span className="reaction-glow"/><span className="reaction-ring"/><span className="reaction-particle p1"/><span className="reaction-particle p2"/><span className="reaction-particle p3"/><span className="reaction-emoji">{r.emoji}</span></div>)}</div>
        {showingScreen&&<button type="button" className="screen-fit-button" aria-label={screenFullscreen?'Exit full screen':'Full screen shared screen'} title={screenFullscreen?'Exit full screen':'Full screen'} onClick={toggleScreenFullscreen}><MeetingIcon type={screenFullscreen?'fullscreenExit':'fullscreen'}/></button>}
      </div>
-     <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=>{const targetId=String(p.participant?.identity||`local-${name}`);const effect=interactiveEffects.find(x=>x.targetId===targetId);return <ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={effect}/>})}</div>
+     <div className="thumbs">{allParticipants.slice(0,10).map((p,i)=>{const targetId=String(p.participant?.identity||`local-${name}`);const effect=interactiveEffects.find(x=>x.targetId===targetId);const speaking=activeSpeakerIds.includes(targetId);return <ParticipantTile key={p.participant?.identity||`${p.name}-${i}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={effect} isSpeaking={speaking}/>})}</div>
    </div>
    <div className="remote-audio" aria-hidden="true">{participants.map(p=><RemoteAudio key={p.identity} participant={p}/>)}</div>
    {micError&&<div className="meeting-status-error">Microphone: {micError} <button className="ghost small" onClick={toggleMic}>Try microphone again</button></div>}
@@ -826,7 +836,7 @@ function isActiveCameraPublication(publication){
  if(media?.muted===true)return false;
  return true;
 }
-function ParticipantTile({item,avatar,localCameraEnabled,interactiveEffect}){
+function ParticipantTile({item,avatar,localCameraEnabled,interactiveEffect,isSpeaking}){
  const publication=item.participant?Array.from(item.participant.videoTrackPublications?.values?.()||[]).find(p=>p.source==='camera'&&isActiveCameraPublication(p))||null:null;
  const showVideo=item.local ? Boolean(localCameraEnabled)&&Boolean(publication) : Boolean(publication);
  const videoTrack=showVideo?publication.track:null;
@@ -835,7 +845,7 @@ function ParticipantTile({item,avatar,localCameraEnabled,interactiveEffect}){
   const emoteLabel=activeEmote==='faaah'?'FAAAAH!':'SHEEESHHH!';
   const sheeshEffect=interactiveEffect?<div className={`participant-emote-effect emote-${activeEmote}`} aria-label={`${interactiveEffect.targetName} ${emoteLabel}`}><div className="emote-energy"/><div className="emote-burst"><i/><i/><i/><i/><i/><i/><i/><i/></div><img src={emoteAsset} alt=""/></div>:null;
  const label=<span className="thumb-name">{item.name}{item.role==='host'?' • Host':item.role==='admin'?' • Admin':''}</span>;
- return <div className={`thumb ${interactiveEffect?'interactive-hit':''}`} aria-label={item.name}>
+ return <div className={`thumb ${isSpeaking?'speaker-active':''} ${interactiveEffect?'interactive-hit emote-active':''}`} aria-label={item.name} data-speaking={isSpeaking?'true':'false'}>
    {videoTrack?<><LiveVideo track={videoTrack} className="thumb-video" label={item.name}/>{label}</>:<><div className="participant-avatar-fallback"><img className={interactiveEffect?'avatar-image-hidden-for-emote':''} src={avatar} alt=""/>{label}</div></>}
    {sheeshEffect}
  </div>
