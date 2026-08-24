@@ -433,3 +433,54 @@
 .interactive-picker-item.disabled{opacity:.42;cursor:not-allowed;border-style:dashed}
 .interactive-picker-hint{display:block;margin-top:9px;text-align:center;font-size:10px;opacity:.55}
 @media(max-width:700px){.interactive-picker{bottom:calc(100% + 8px);width:min(310px,92vw);padding:10px}.interactive-picker-item{min-height:82px}.interactive-picker-item img{width:46px;height:46px}.interactive-picker-emoji{height:46px;font-size:36px}}
+
+/* v1.8.1: make the Interactive Emote selector clearly visible and usable on all screen sizes. */
+.interactive-control-wrap{z-index:300!important}
+.interactive-selected-icon{width:22px;height:22px;display:grid;place-items:center}
+.interactive-selected-icon img{width:22px!important;height:22px!important;object-fit:contain;border-radius:4px}
+.interactive-picker{max-height:min(420px,70vh);overflow:auto}
+@media(max-width:700px){
+  .meeting-controls{overflow-x:auto;overflow-y:visible!important}
+  .interactive-control-wrap{position:static!important}
+  .interactive-picker{position:fixed!important;left:50%!important;bottom:76px!important;top:auto!important;transform:translateX(-50%)!important;width:min(340px,calc(100vw - 24px))!important;max-height:65vh!important;z-index:9999!important}
+}
+
+
+/* v1.8.2: Interactive Emote fits cleanly on User / Host / Admin screens. */
+.interactive-control-wrap{position:relative;z-index:1200}
+.interactive-picker{box-sizing:border-box;width:min(300px,calc(100vw - 24px));max-height:min(360px,calc(100vh - 130px));overflow-y:auto;overflow-x:hidden;padding:10px;border-radius:16px}
+.interactive-picker p{font-size:10px;margin-bottom:8px}
+.interactive-picker-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.interactive-picker-item{min-height:76px;padding:6px;border-radius:12px;gap:4px}
+.interactive-picker-item img{width:42px;height:42px}
+.interactive-picker-emoji{height:42px;font-size:32px}
+.interactive-picker-item strong{font-size:10px}
+/* Keep the animated emote inside the participant tile instead of letting it push into other tiles. */
+.thumb.interactive-target{overflow:hidden!important}
+.thumb.interactive-target .participant-emote-effect{width:min(86%,150px)!important;height:min(86%,150px)!important;max-width:86%!important;max-height:86%!important;overflow:hidden!important}
+.thumb.interactive-target .participant-emote-effect img{width:min(78%,132px)!important;max-width:78%!important;max-height:78%!important}
+.thumb.interactive-target .participant-emote-effect .emote-text{max-width:100%;overflow:hidden;text-overflow:ellipsis;font-size:clamp(10px,2.5vw,18px)!important}
+@media(max-width:700px){
+  .interactive-picker{position:fixed!important;left:50%!important;bottom:70px!important;top:auto!important;transform:translateX(-50%)!important;width:min(292px,calc(100vw - 20px))!important;max-height:calc(100vh - 100px)!important;padding:9px!important}
+  .interactive-picker-head b{font-size:13px}
+  .interactive-picker p{font-size:9px;line-height:1.25}
+  .interactive-picker-item{min-height:68px;padding:5px}
+  .interactive-picker-item img{width:38px;height:38px}
+  .interactive-picker-emoji{height:38px;font-size:29px}
+  .interactive-picker-item strong{font-size:9px}
+  .thumb.interactive-target .participant-emote-effect{width:78%!important;height:78%!important}
+  .thumb.interactive-target .participant-emote-effect img{width:72%!important;max-height:72%!important}
+  .thumb.interactive-target .participant-emote-effect .emote-text{font-size:11px!important;top:0!important}
+}
+@media(max-width:380px){
+  .interactive-picker{width:calc(100vw - 14px)!important;bottom:66px!important}
+  .interactive-picker-grid{gap:5px}
+  .interactive-picker-item{min-height:62px}
+}
+@media(max-height:560px){
+  .interactive-picker{max-height:calc(100vh - 82px)!important}
+  .interactive-picker p{display:none}
+  .interactive-picker-item{min-height:58px}
+  .interactive-picker-item img{width:34px;height:34px}
+  .interactive-picker-emoji{height:34px;font-size:26px}
+}
