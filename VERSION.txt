@@ -1,1 +1,1 @@
-WebInternDev v1.10.9 — Google Meet-style boxed participant gallery
+WebInternDev v1.11.1 — Universal scrolling + restored active-speaker/emote priority

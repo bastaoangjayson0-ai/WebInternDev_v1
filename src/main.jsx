@@ -832,18 +832,25 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  };
  const localParticipant=liveRoomRef.current?.localParticipant||null;
  const allParticipants=[{local:true,participant:localParticipant,name,role},...participants.map(p=>({local:false,participant:p,name:p.name||p.identity,role:p.metadata?(()=>{try{return JSON.parse(p.metadata).role}catch{return 'user'}})():'user'}))];
- // Keep the original participant order as the stable fallback. Active speakers
- // and active emotes temporarily move to the front, then automatically return
- // to their original positions when the activity ends.
+ // Keep a stable participant order. Speaking/emote activity must NEVER
+ // reorder the DOM because that makes the scroll position jump and can make
+ // highlights appear on the wrong tile while LiveKit is updating tracks.
+ // Activity is represented only by CSS classes on the existing tile.
  const orderedParticipants=allParticipants.map((p,index)=>{
    const identity=String(p.participant?.identity||'').trim();
    const sid=String(p.participant?.sid||'').trim();
    const targetId=identity||`local-${name}`;
-   const effect=interactiveEffects.find(x=>x.targetId===targetId);
+   const effect=interactiveEffects.find(x=>String(x.targetId||'')===targetId);
    const speaking=Boolean(p.participant?.isSpeaking)||activeSpeakerIds.includes(targetId)||activeSpeakerIds.includes(sid?`sid:${sid}`:'');
    const isHost=p.role==='host';
-   return {...p,index,targetId,effect,speaking,isHost,priority:(isHost?100:0)+(effect?20:0)+(speaking?10:0)};
- }).sort((a,b)=>b.priority-a.priority||a.index-b.index);
+   return {...p,index,targetId,effect,speaking,isHost};
+ }).sort((a,b)=>{
+   // Preserve the original v1.9.7 priority behavior: active speakers move to
+   // the front, then active emote tiles, then everyone else. The original
+   // index keeps each group stable so the gallery does not randomly reshuffle.
+   const priority=(item)=>item.speaking?0:(item.effect?1:2);
+   return priority(a)-priority(b) || a.index-b.index;
+ });
  const screenFromRemote=(isUsableScreenTrack(remoteScreenTrack)?remoteScreenTrack:null) || participants.map(p=>trackForParticipant(p,'screen_share')||trackForParticipant(p,'screenShare')).find(isUsableScreenTrack) || null;
  const mainScreen=isUsableScreenTrack(screenTrack)?screenTrack:screenFromRemote;
  const remoteScreenActive=Boolean(screenFromRemote);
