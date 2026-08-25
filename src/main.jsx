@@ -851,10 +851,30 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    const priority=(item)=>item.speaking?0:(item.effect?1:2);
    return priority(a)-priority(b) || a.index-b.index;
  });
+ const participantCount=orderedParticipants.length;
+ // Keep the meeting compact for small calls. The participant gallery becomes
+ // a real bounded scroll viewport only when there are more than 3 participants.
+ // This keeps the microphone/camera/share/react/emote controls close to the
+ // tiles for 1–3 people while still supporting large meetings.
+ const compactGallery=participantCount<=3;
+ const gallerySizeClass=compactGallery?'compact-gallery':'scroll-gallery';
  const screenFromRemote=(isUsableScreenTrack(remoteScreenTrack)?remoteScreenTrack:null) || participants.map(p=>trackForParticipant(p,'screen_share')||trackForParticipant(p,'screenShare')).find(isUsableScreenTrack) || null;
  const mainScreen=isUsableScreenTrack(screenTrack)?screenTrack:screenFromRemote;
  const remoteScreenActive=Boolean(screenFromRemote);
  const showingScreen=Boolean(mainScreen);
+ const galleryRef=useRef(null);
+ const [galleryNeedsScroll,setGalleryNeedsScroll]=useState(false);
+ useEffect(()=>{
+   const el=galleryRef.current;
+   if(!el)return;
+   const check=()=>setGalleryNeedsScroll(el.scrollHeight > el.clientHeight + 1);
+   check();
+   const ro=new ResizeObserver(check);
+   ro.observe(el);
+   window.addEventListener('resize',check);
+   const raf=requestAnimationFrame(check);
+   return()=>{ro.disconnect();window.removeEventListener('resize',check);cancelAnimationFrame(raf);};
+ },[participantCount,showingScreen,screenFullscreen]);
  const toggleScreenFullscreen=()=>{
    // App fullscreen avoids the browser/Android instructional banner.
    setScreenFullscreen(v=>!v);
@@ -867,13 +887,13 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  return <section className="meeting">
    <div className="meeting-head"><div><b>{room.title}</b><span className="muted"> • {room.participants}/50</span></div><span className={connection==='connected'?'live':'connection-pill'}>{connection==='connected'?'● LIVE':connection==='connecting'?'Connecting…':connection.startsWith('error:')?'Connection error':'Reconnecting…'}</span></div>
    {connection.startsWith('error:')&&<div className="meeting-error">{connection.slice(6)}<button className="ghost small" onClick={()=>window.location.reload()}>Reload</button></div>}
-   <div className={`stage ${pinned&&mainScreen?'pinned':''} ${showingScreen?'screen-active':'gallery-only'}`}>
+   <div className={`stage ${pinned&&mainScreen?'pinned':''} ${showingScreen?'screen-active':'gallery-only'} ${gallerySizeClass}`} data-participant-count={participantCount}>
      {showingScreen&&<div ref={mainTileRef} className={`main-tile ${screenFullscreen?'app-fullscreen':''}`} style={{'--screen-aspect':screenAspect}}>
        <LiveVideo key={`screen-${screenEpoch}-${mainScreen?.sid||mainScreen?.mediaStreamTrack?.id||'active'}`} track={mainScreen} className="screen-video" onAspectRatio={setScreenAspect} />
        <div className="reaction-layer" aria-live="polite">{reactions.map((r,i)=><div className="floating-reaction" style={{left:`${8+((i*19+Math.floor((r.seed||0)*31))%82)}%`,animationDelay:`${(i%3)*65}ms`}} key={r.id} title={`${r.name}: ${r.emoji}`}><span className="reaction-glow"/><span className="reaction-ring"/><span className="reaction-particle p1"/><span className="reaction-particle p2"/><span className="reaction-particle p3"/><span className="reaction-emoji">{r.emoji}</span></div>)}</div>{chatNotice&&<div className="chat-notice-pop" role="status" aria-live="polite"><span className="chat-notice-icon"><MeetingIcon type="chat"/></span><span className="chat-notice-copy"><b>{chatNotice.name}</b><span>{chatNotice.text}</span></span></div>}
        <button type="button" className="screen-fit-button" aria-label={screenFullscreen?'Exit full screen':'Full screen shared screen'} title={screenFullscreen?'Exit full screen':'Full screen'} onClick={toggleScreenFullscreen}><MeetingIcon type={screenFullscreen?'fullscreenExit':'fullscreen'}/></button>
      </div>}
-     <div className={`thumbs ${showingScreen?'with-screen':'full-gallery'}`} aria-label="Meeting participants">{orderedParticipants.map((p,i)=><ParticipantTile key={p.participant?.identity||p.participant?.sid||`${p.name}-${p.index}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={p.effect} isSpeaking={p.speaking}/>)}</div>
+     <div ref={galleryRef} className={`thumbs ${showingScreen?'with-screen':'full-gallery'} ${galleryNeedsScroll?'needs-scroll':''}`} aria-label="Meeting participants">{orderedParticipants.map((p,i)=><ParticipantTile key={p.participant?.identity||p.participant?.sid||`${p.name}-${p.index}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={p.effect} isSpeaking={p.speaking}/>)}</div>
    </div>
    <div className="remote-audio" aria-hidden="true">{participants.map(p=><RemoteAudio key={p.identity} participant={p}/>)}</div>
    {micError&&<div className="meeting-status-error">Microphone: {micError} <button className="ghost small" onClick={toggleMic}>Try microphone again</button></div>}

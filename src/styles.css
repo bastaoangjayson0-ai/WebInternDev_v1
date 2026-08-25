@@ -1839,3 +1839,304 @@ html,body,#root{min-height:100%;max-width:100%;overflow-x:hidden}
   .stage.screen-active:not(.pinned) .thumb{min-height:115px!important}
 }
 @media (prefers-reduced-motion:reduce){.thumb.speaker-active,.thumb.emote-active{transition:none!important}}
+
+/* v1.12.0 — compact small calls + real space-based scrolling
+   1–3 participants: never create an artificial scroll viewport; keep all tiles
+   visible and keep the meeting controls immediately below them.
+   4+ participants: use the available meeting space as a bounded gallery and
+   let the gallery itself scroll only when its content actually exceeds that
+   space. Active-speaker priority from v1.11.1 is intentionally preserved. */
+.stage.gallery-only.compact-gallery:not(.pinned){
+  display:block!important;
+  width:min(1500px,100%)!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  overflow:visible!important;
+  padding:12px 18px!important;
+}
+.stage.gallery-only.compact-gallery .thumbs.full-gallery{
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  grid-auto-rows:minmax(150px,auto)!important;
+  align-content:start!important;
+  overflow:visible!important;
+  padding:0 4px 2px 0!important;
+  gap:12px!important;
+}
+.stage.gallery-only.compact-gallery .thumbs.full-gallery .thumb{
+  width:100%!important;
+  height:auto!important;
+  min-height:150px!important;
+  aspect-ratio:16/9!important;
+}
+
+.stage.screen-active.compact-gallery:not(.pinned){
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  overflow:visible!important;
+}
+.stage.screen-active.compact-gallery:not(.pinned) .thumbs.with-screen{
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  overflow:visible!important;
+}
+
+/* Large calls: scrolling is available, but the scrollbar only appears when
+   there is actually more content than the available viewport. */
+.stage.gallery-only.scroll-gallery:not(.pinned){
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  grid-template-rows:minmax(0,1fr)!important;
+  width:min(1500px,100%)!important;
+  height:calc(100dvh - 190px)!important;
+  min-height:320px!important;
+  max-height:calc(100dvh - 190px)!important;
+  overflow:hidden!important;
+  padding:14px 18px!important;
+}
+.stage.gallery-only.scroll-gallery .thumbs.full-gallery{
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  max-height:none!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;
+  overscroll-behavior:contain!important;
+  display:grid!important;
+  grid-template-columns:repeat(auto-fit,minmax(210px,1fr))!important;
+  grid-auto-rows:minmax(135px,auto)!important;
+  align-content:start!important;
+  gap:12px!important;
+  padding:0 5px 12px 0!important;
+  scrollbar-gutter:stable!important;
+}
+.stage.gallery-only.scroll-gallery .thumbs.full-gallery .thumb{
+  width:100%!important;
+  height:auto!important;
+  min-height:135px!important;
+  aspect-ratio:16/9!important;
+}
+
+.stage.screen-active.scroll-gallery:not(.pinned) .thumbs.with-screen{
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;
+  overscroll-behavior:contain!important;
+}
+
+@media (max-width:1100px){
+  .stage.gallery-only.compact-gallery .thumbs.full-gallery{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-rows:minmax(125px,auto)!important;
+    gap:9px!important;
+  }
+  .stage.gallery-only.compact-gallery .thumbs.full-gallery .thumb{min-height:125px!important}
+  .stage.gallery-only.scroll-gallery:not(.pinned){
+    height:calc(100dvh - 175px)!important;
+    max-height:calc(100dvh - 175px)!important;
+    min-height:300px!important;
+    padding:10px!important;
+  }
+  .stage.gallery-only.scroll-gallery .thumbs.full-gallery{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    grid-auto-rows:110px!important;
+    gap:8px!important;
+  }
+  .stage.gallery-only.scroll-gallery .thumbs.full-gallery .thumb{min-height:110px!important;aspect-ratio:auto!important}
+}
+
+@media (max-width:700px){
+  .stage.gallery-only.compact-gallery:not(.pinned){
+    padding:8px!important;
+  }
+  .stage.gallery-only.compact-gallery .thumbs.full-gallery{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-rows:110px!important;
+    gap:8px!important;
+    padding:0 2px 2px!important;
+  }
+  .stage.gallery-only.compact-gallery .thumbs.full-gallery .thumb{
+    min-height:110px!important;
+    aspect-ratio:auto!important;
+  }
+  .stage.gallery-only.scroll-gallery:not(.pinned){
+    height:calc(100dvh - 170px)!important;
+    max-height:calc(100dvh - 170px)!important;
+    min-height:260px!important;
+    padding:8px!important;
+  }
+  .stage.gallery-only.scroll-gallery .thumbs.full-gallery{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-rows:100px!important;
+    gap:8px!important;
+    padding:0 2px 12px!important;
+  }
+  .stage.gallery-only.scroll-gallery .thumbs.full-gallery .thumb{
+    min-height:100px!important;
+    aspect-ratio:auto!important;
+  }
+  .stage.screen-active.compact-gallery:not(.pinned) .thumbs.with-screen{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-rows:92px!important;
+  }
+}
+
+@media (max-width:430px){
+  .stage.gallery-only.scroll-gallery:not(.pinned){
+    height:calc(100dvh - 160px)!important;
+    max-height:calc(100dvh - 160px)!important;
+  }
+  .stage.gallery-only.scroll-gallery .thumbs.full-gallery{
+    grid-auto-rows:92px!important;
+  }
+  .stage.gallery-only.scroll-gallery .thumbs.full-gallery .thumb{min-height:92px!important}
+  .stage.gallery-only.compact-gallery .thumbs.full-gallery{grid-auto-rows:100px!important}
+  .stage.gallery-only.compact-gallery .thumbs.full-gallery .thumb{min-height:100px!important}
+}
+
+/* v1.12.1 — adaptive visibility-based participant scrolling
+   Do NOT force a scroll viewport just because the meeting is small or large.
+   The gallery receives the maximum space available above the controls. If all
+   participant tiles fit, there is no scrollbar. If any participant tile would
+   be below the visible area, the gallery becomes the scroll viewport. This
+   works with mouse, touch and mobile browsers and preserves active-speaker
+   priority from v1.11.1. */
+.stage.gallery-only.compact-gallery:not(.pinned),
+.stage.gallery-only.scroll-gallery:not(.pinned){
+  display:block!important;
+  width:min(1500px,100%)!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:calc(100dvh - 205px)!important;
+  overflow:hidden!important;
+  padding:10px 18px!important;
+}
+.stage.gallery-only.compact-gallery .thumbs.full-gallery,
+.stage.gallery-only.scroll-gallery .thumbs.full-gallery{
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:calc(100dvh - 245px)!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;
+  overscroll-behavior-y:contain!important;
+  overscroll-behavior-x:none!important;
+  scrollbar-gutter:stable!important;
+  display:grid!important;
+  align-content:start!important;
+}
+.stage.gallery-only.compact-gallery .thumbs.full-gallery{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  grid-auto-rows:minmax(150px,auto)!important;
+  gap:12px!important;
+  padding:0 5px 10px 0!important;
+}
+.stage.gallery-only.compact-gallery .thumbs.full-gallery .thumb{
+  min-height:150px!important;
+  height:auto!important;
+  aspect-ratio:16/9!important;
+}
+.stage.gallery-only.scroll-gallery .thumbs.full-gallery{
+  grid-template-columns:repeat(auto-fit,minmax(210px,1fr))!important;
+  grid-auto-rows:minmax(135px,auto)!important;
+  gap:12px!important;
+  padding:0 5px 12px 0!important;
+}
+.stage.gallery-only.scroll-gallery .thumbs.full-gallery .thumb{
+  min-height:135px!important;
+  height:auto!important;
+  aspect-ratio:16/9!important;
+}
+
+/* Screen sharing: the participant rail gets its own visibility-based
+   viewport. With only a few participants it stays compact; if a participant
+   falls outside the visible rail, vertical scrolling becomes available. */
+.stage.screen-active.compact-gallery:not(.pinned) .thumbs.with-screen,
+.stage.screen-active.scroll-gallery:not(.pinned) .thumbs.with-screen{
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;
+  overscroll-behavior-y:contain!important;
+  scrollbar-gutter:stable!important;
+  max-height:calc(100dvh - 250px)!important;
+}
+
+@media (max-width:1100px){
+  .stage.gallery-only.compact-gallery:not(.pinned),
+  .stage.gallery-only.scroll-gallery:not(.pinned){
+    max-height:calc(100dvh - 190px)!important;
+    padding:8px 10px!important;
+  }
+  .stage.gallery-only.compact-gallery .thumbs.full-gallery,
+  .stage.gallery-only.scroll-gallery .thumbs.full-gallery{
+    max-height:calc(100dvh - 230px)!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-rows:110px!important;
+    gap:8px!important;
+  }
+  .stage.gallery-only.compact-gallery .thumbs.full-gallery .thumb,
+  .stage.gallery-only.scroll-gallery .thumbs.full-gallery .thumb{
+    min-height:110px!important;
+    aspect-ratio:auto!important;
+  }
+}
+
+@media (max-width:700px){
+  .stage.gallery-only.compact-gallery:not(.pinned),
+  .stage.gallery-only.scroll-gallery:not(.pinned){
+    max-height:calc(100dvh - 175px)!important;
+    padding:6px 8px!important;
+  }
+  .stage.gallery-only.compact-gallery .thumbs.full-gallery,
+  .stage.gallery-only.scroll-gallery .thumbs.full-gallery{
+    max-height:calc(100dvh - 215px)!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-rows:100px!important;
+    gap:8px!important;
+    padding:0 3px 12px 0!important;
+  }
+  .stage.gallery-only.compact-gallery .thumbs.full-gallery .thumb,
+  .stage.gallery-only.scroll-gallery .thumbs.full-gallery .thumb{
+    min-height:100px!important;
+  }
+  .stage.screen-active.compact-gallery:not(.pinned) .thumbs.with-screen,
+  .stage.screen-active.scroll-gallery:not(.pinned) .thumbs.with-screen{
+    max-height:calc(100dvh - 250px)!important;
+  }
+}
+
+@media (max-width:430px){
+  .stage.gallery-only.compact-gallery:not(.pinned),
+  .stage.gallery-only.scroll-gallery:not(.pinned){
+    max-height:calc(100dvh - 160px)!important;
+    padding:5px 6px!important;
+  }
+  .stage.gallery-only.compact-gallery .thumbs.full-gallery,
+  .stage.gallery-only.scroll-gallery .thumbs.full-gallery{
+    max-height:calc(100dvh - 200px)!important;
+    grid-auto-rows:92px!important;
+  }
+  .stage.gallery-only.compact-gallery .thumbs.full-gallery .thumb,
+  .stage.gallery-only.scroll-gallery .thumbs.full-gallery .thumb{min-height:92px!important;}
+}
+
+/* Always show the scrollbar track only when the browser reports overflow.
+   The JS adds .needs-scroll for a stronger visual cue, while overflow:auto
+   remains the source of truth for native mouse/touch scrolling. */
+.stage .thumbs.needs-scroll{scrollbar-gutter:stable!important;}
+.stage .thumbs.needs-scroll::-webkit-scrollbar{width:10px!important;height:0!important}
+.stage .thumbs.needs-scroll::-webkit-scrollbar-track{background:#101c22!important;border-radius:10px!important}
+.stage .thumbs.needs-scroll::-webkit-scrollbar-thumb{background:#4a6875!important;border-radius:10px!important;border:2px solid #101c22!important}

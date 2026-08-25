@@ -1,1 +1,1 @@
-WebInternDev v1.11.1 — Universal scrolling + restored active-speaker/emote priority
+WebInternDev v1.12.0 — Compact small calls + space-based participant scrolling + active speaker priority preserved
