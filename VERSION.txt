@@ -1,1 +1,1 @@
-WebInternDev v1.10.8 — Google Meet-style adaptive participant gallery / screen-share layout
+WebInternDev v1.10.9 — Google Meet-style boxed participant gallery
