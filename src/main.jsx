@@ -868,8 +868,21 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const checkGalleryOverflow=()=>{
    const el=galleryRef.current;
    if(!el)return;
-   const hasOverflow=el.scrollHeight > el.clientHeight + 2;
-   setGalleryNeedsScroll(hasOverflow);
+   // Decide from what is actually visible, not from participant count.
+   // A small call stays non-scrollable when every tile fits. Scrolling is
+   // enabled only when at least one tile extends beyond the gallery viewport.
+   const box=el.getBoundingClientRect();
+   const children=Array.from(el.children);
+   let contentBottom=box.top;
+   let contentTop=box.bottom;
+   for(const child of children){
+     const r=child.getBoundingClientRect();
+     contentBottom=Math.max(contentBottom,r.bottom);
+     contentTop=Math.min(contentTop,r.top);
+   }
+   const geometryOverflow=children.length>0 && (contentBottom > box.bottom + 2 || contentTop < box.top - 2);
+   const scrollOverflow=el.scrollHeight > el.clientHeight + 2;
+   setGalleryNeedsScroll(Boolean(geometryOverflow || scrollOverflow));
  };
  useEffect(()=>{
    const el=galleryRef.current;
@@ -908,9 +921,20 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    const maxScroll=Math.max(0,el.scrollHeight-el.clientHeight);
    if(maxScroll<=1)return;
    const before=el.scrollTop;
-   el.scrollTop=Math.max(0,Math.min(maxScroll,before+delta));
-   if(el.scrollTop!==before || delta!==0) event.preventDefault();
+   const next=Math.max(0,Math.min(maxScroll,before+delta));
+   el.scrollTop=next;
+   // The gallery owns the wheel while it is overflowing, even when the
+   // pointer is directly over a video, avatar, or emote overlay.
+   event.preventDefault();
+   event.stopPropagation();
  };
+ useEffect(()=>{
+   const el=galleryRef.current;
+   if(!el || !galleryNeedsScroll)return;
+   const onWheel=(event)=>handleGalleryWheel(event);
+   el.addEventListener('wheel',onWheel,{capture:true,passive:false});
+   return()=>el.removeEventListener('wheel',onWheel,true);
+ },[galleryNeedsScroll]);
  const toggleScreenFullscreen=()=>{
    // App fullscreen avoids the browser/Android instructional banner.
    setScreenFullscreen(v=>!v);

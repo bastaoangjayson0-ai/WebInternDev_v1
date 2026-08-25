@@ -2003,3 +2003,246 @@ html,body,#root{min-height:100%;max-width:100%;overflow-x:hidden}
   .stage.gallery-only.compact-gallery .thumbs.full-gallery{grid-auto-rows:100px!important}
   .stage.gallery-only.compact-gallery .thumbs.full-gallery .thumb{min-height:100px!important}
 }
+
+/* v1.12.5 — FINAL Google Meet-style meeting stage.
+   Reference layout: large shared screen on the left, participant grid on the right,
+   full-height stage, compact controls below. Small participant counts disable the
+   participant scrollbar; overflow activates it only when tiles no longer fit. */
+.stage.screen-active:not(.pinned),
+.stage.screen-active.compact-gallery:not(.pinned),
+.stage.screen-active.scroll-gallery:not(.pinned){
+  display:grid!important;
+  grid-template-columns:minmax(0,1.72fr) minmax(320px,.88fr)!important;
+  grid-template-rows:minmax(0,1fr)!important;
+  width:min(1500px,calc(100% - 24px))!important;
+  height:clamp(420px,calc(100dvh - 270px),720px)!important;
+  min-height:420px!important;
+  max-height:720px!important;
+  margin:0 auto!important;
+  padding:14px!important;
+  gap:14px!important;
+  overflow:hidden!important;
+  background:#071016!important;
+  border:1px solid #20343e!important;
+  border-radius:18px!important;
+}
+.stage.screen-active:not(.pinned) .main-tile,
+.stage.screen-active.compact-gallery:not(.pinned) .main-tile,
+.stage.screen-active.scroll-gallery:not(.pinned) .main-tile{
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  max-height:none!important;
+  margin:0!important;
+  border-radius:18px!important;
+  background:#020609!important;
+  border:1px solid #29414c!important;
+  box-shadow:0 10px 30px rgba(0,0,0,.28)!important;
+}
+.stage.screen-active:not(.pinned) .main-tile .live-video-wrap.screen-video,
+.stage.screen-active:not(.pinned) .main-tile .live-video-wrap.screen-video video,
+.stage.screen-active.compact-gallery:not(.pinned) .main-tile .live-video-wrap.screen-video,
+.stage.screen-active.compact-gallery:not(.pinned) .main-tile .live-video-wrap.screen-video video,
+.stage.screen-active.scroll-gallery:not(.pinned) .main-tile .live-video-wrap.screen-video,
+.stage.screen-active.scroll-gallery:not(.pinned) .main-tile .live-video-wrap.screen-video video{
+  width:100%!important;
+  height:100%!important;
+}
+.stage.screen-active:not(.pinned) .main-tile .live-video-wrap.screen-video video,
+.stage.screen-active.compact-gallery:not(.pinned) .main-tile .live-video-wrap.screen-video video,
+.stage.screen-active.scroll-gallery:not(.pinned) .main-tile .live-video-wrap.screen-video video{
+  object-fit:contain!important;
+  object-position:center!important;
+  background:#000!important;
+}
+
+/* Participant rail: it is always sized to the stage, but it only scrolls when
+   the grid content actually exceeds the available height. */
+.stage.screen-active:not(.pinned) .thumbs.with-screen,
+.stage.screen-active.compact-gallery:not(.pinned) .thumbs.with-screen,
+.stage.screen-active.scroll-gallery:not(.pinned) .thumbs.with-screen{
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  max-height:none!important;
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  grid-auto-rows:minmax(112px,auto)!important;
+  align-content:start!important;
+  align-items:stretch!important;
+  gap:10px!important;
+  padding:0 3px 3px 0!important;
+  margin:0!important;
+  overflow-x:hidden!important;
+  overflow-y:visible!important;
+  scrollbar-gutter:stable!important;
+  overscroll-behavior:contain!important;
+  touch-action:auto!important;
+}
+.stage.screen-active.scroll-gallery:not(.pinned) .thumbs.with-screen{
+  overflow-y:auto!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb,
+.stage.screen-active.compact-gallery:not(.pinned) .thumbs.with-screen .thumb,
+.stage.screen-active.scroll-gallery:not(.pinned) .thumbs.with-screen .thumb{
+  width:100%!important;
+  height:auto!important;
+  min-width:0!important;
+  min-height:112px!important;
+  aspect-ratio:4/3!important;
+  border-radius:14px!important;
+  padding:8px!important;
+  background:linear-gradient(145deg,#1b2930,#111b21)!important;
+  border:1px solid #2a414b!important;
+  box-shadow:0 7px 18px rgba(0,0,0,.18)!important;
+}
+
+/* No screen share: Google Meet-like full participant gallery. */
+.stage.gallery-only:not(.pinned),
+.stage.gallery-only.compact-gallery:not(.pinned),
+.stage.gallery-only.scroll-gallery:not(.pinned){
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  grid-template-rows:minmax(0,1fr)!important;
+  width:min(1500px,calc(100% - 24px))!important;
+  height:clamp(300px,calc(100dvh - 270px),720px)!important;
+  min-height:300px!important;
+  max-height:720px!important;
+  margin:0 auto!important;
+  padding:14px!important;
+  gap:0!important;
+  overflow:hidden!important;
+  background:#071016!important;
+  border:1px solid #20343e!important;
+  border-radius:18px!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery,
+.stage.gallery-only.compact-gallery:not(.pinned) .thumbs.full-gallery,
+.stage.gallery-only.scroll-gallery:not(.pinned) .thumbs.full-gallery{
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  max-height:none!important;
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  grid-auto-rows:minmax(145px,auto)!important;
+  align-content:start!important;
+  gap:12px!important;
+  padding:0 3px 3px 0!important;
+  margin:0!important;
+  overflow-x:hidden!important;
+  overflow-y:visible!important;
+  scrollbar-gutter:stable!important;
+}
+.stage.gallery-only.scroll-gallery:not(.pinned) .thumbs.full-gallery{
+  overflow-y:auto!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb,
+.stage.gallery-only.compact-gallery:not(.pinned) .thumbs.full-gallery .thumb,
+.stage.gallery-only.scroll-gallery:not(.pinned) .thumbs.full-gallery .thumb{
+  width:100%!important;
+  height:auto!important;
+  min-width:0!important;
+  min-height:145px!important;
+  aspect-ratio:16/9!important;
+  border-radius:16px!important;
+  background:linear-gradient(145deg,#1b2930,#111b21)!important;
+  border:1px solid #2a414b!important;
+  box-shadow:0 8px 20px rgba(0,0,0,.18)!important;
+}
+
+/* Keep the controls immediately below the stage, like the reference. */
+.meeting-bottom{
+  width:min(1500px,calc(100% - 24px))!important;
+  margin:0 auto!important;
+  padding:0 0 10px!important;
+}
+.meeting-controls{
+  padding:10px 6px 6px!important;
+  gap:10px!important;
+}
+.audio-note{margin:8px auto 4px!important}
+
+@media (max-width:1200px){
+  .stage.screen-active:not(.pinned),
+  .stage.screen-active.compact-gallery:not(.pinned),
+  .stage.screen-active.scroll-gallery:not(.pinned){
+    grid-template-columns:minmax(0,1.55fr) minmax(300px,.95fr)!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen,
+  .stage.screen-active.compact-gallery:not(.pinned) .thumbs.with-screen,
+  .stage.screen-active.scroll-gallery:not(.pinned) .thumbs.with-screen{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-rows:minmax(120px,auto)!important;
+  }
+}
+@media (max-width:800px){
+  .stage.screen-active:not(.pinned),
+  .stage.screen-active.compact-gallery:not(.pinned),
+  .stage.screen-active.scroll-gallery:not(.pinned){
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    grid-template-rows:minmax(260px,58dvh) minmax(0,1fr)!important;
+    height:calc(100dvh - 255px)!important;
+    min-height:430px!important;
+    max-height:none!important;
+    width:calc(100% - 12px)!important;
+    padding:8px!important;
+    gap:8px!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen,
+  .stage.screen-active.compact-gallery:not(.pinned) .thumbs.with-screen,
+  .stage.screen-active.scroll-gallery:not(.pinned) .thumbs.with-screen{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    grid-auto-rows:minmax(92px,auto)!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb,
+  .stage.screen-active.compact-gallery:not(.pinned) .thumbs.with-screen .thumb,
+  .stage.screen-active.scroll-gallery:not(.pinned) .thumbs.with-screen .thumb{
+    min-height:92px!important;
+    aspect-ratio:4/3!important;
+  }
+  .stage.gallery-only:not(.pinned),
+  .stage.gallery-only.compact-gallery:not(.pinned),
+  .stage.gallery-only.scroll-gallery:not(.pinned){
+    width:calc(100% - 12px)!important;
+    height:calc(100dvh - 255px)!important;
+    min-height:300px!important;
+    max-height:none!important;
+    padding:8px!important;
+  }
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery,
+  .stage.gallery-only.compact-gallery:not(.pinned) .thumbs.full-gallery,
+  .stage.gallery-only.scroll-gallery:not(.pinned) .thumbs.full-gallery{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-rows:minmax(105px,auto)!important;
+    gap:8px!important;
+  }
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb,
+  .stage.gallery-only.compact-gallery:not(.pinned) .thumbs.full-gallery .thumb,
+  .stage.gallery-only.scroll-gallery:not(.pinned) .thumbs.full-gallery .thumb{
+    min-height:105px!important;
+  }
+}
+@media (max-width:520px){
+  .stage.screen-active:not(.pinned),
+  .stage.screen-active.compact-gallery:not(.pinned),
+  .stage.screen-active.scroll-gallery:not(.pinned){
+    grid-template-rows:minmax(220px,52dvh) minmax(0,1fr)!important;
+    height:calc(100dvh - 235px)!important;
+    min-height:400px!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen,
+  .stage.screen-active.compact-gallery:not(.pinned) .thumbs.with-screen,
+  .stage.screen-active.scroll-gallery:not(.pinned) .thumbs.with-screen{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-rows:minmax(88px,auto)!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb,
+  .stage.screen-active.compact-gallery:not(.pinned) .thumbs.with-screen .thumb,
+  .stage.screen-active.scroll-gallery:not(.pinned) .thumbs.with-screen .thumb{min-height:88px!important}
+}

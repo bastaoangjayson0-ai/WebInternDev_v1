@@ -2385,3 +2385,100 @@ html,body,#root{min-height:100%;max-width:100%;overflow-x:hidden}
   .stage.gallery-only:not(.pinned) .thumbs.full-gallery{grid-auto-rows:88px!important}
   .stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:88px!important;min-height:88px!important}
 }
+
+/* v1.12.4 — TRUE overflow-gated participant scrolling.
+   Scroll is OFF while every participant tile is visible. It turns ON only
+   after the gallery geometry actually overflows its available viewport.
+   This block is intentionally last so it wins over the older gallery patches. */
+.stage.screen-active:not(.pinned){
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(300px,34%)!important;
+  grid-template-rows:minmax(0,1fr)!important;
+  width:min(1500px,100%)!important;
+  height:calc(100dvh - 190px)!important;
+  min-height:360px!important;
+  max-height:calc(100dvh - 190px)!important;
+  padding:14px!important;
+  gap:12px!important;
+  overflow:hidden!important;
+}
+.stage.screen-active:not(.pinned) .main-tile{
+  width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;
+  max-height:none!important;aspect-ratio:auto!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen{
+  width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;
+  max-height:none!important;display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  grid-auto-rows:150px!important;grid-auto-flow:row!important;
+  align-content:start!important;gap:10px!important;padding:0 4px 8px 0!important;
+  overflow-y:hidden!important;overflow-x:hidden!important;
+  touch-action:auto!important;overscroll-behavior:auto!important;scrollbar-gutter:auto!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-enabled{
+  overflow-y:auto!important;overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch!important;touch-action:pan-y!important;
+  overscroll-behavior-y:contain!important;scrollbar-gutter:stable!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-disabled{
+  overflow-y:hidden!important;touch-action:auto!important;scrollbar-gutter:auto!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{
+  width:100%!important;height:150px!important;min-height:150px!important;max-height:150px!important;
+  aspect-ratio:auto!important;
+}
+
+.stage.gallery-only:not(.pinned){
+  display:grid!important;grid-template-columns:1fr!important;grid-template-rows:minmax(0,1fr)!important;
+  width:min(1500px,100%)!important;height:calc(100dvh - 190px)!important;
+  min-height:260px!important;max-height:calc(100dvh - 190px)!important;
+  padding:14px!important;overflow:hidden!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery{
+  width:100%!important;height:100%!important;min-height:0!important;max-height:none!important;
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  grid-auto-rows:150px!important;grid-auto-flow:row!important;align-content:start!important;
+  gap:12px!important;padding:0 4px 8px 0!important;overflow-y:hidden!important;overflow-x:hidden!important;
+  touch-action:auto!important;overscroll-behavior:auto!important;scrollbar-gutter:auto!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-enabled{
+  overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;touch-action:pan-y!important;
+  overscroll-behavior-y:contain!important;scrollbar-gutter:stable!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-disabled{
+  overflow-y:hidden!important;touch-action:auto!important;scrollbar-gutter:auto!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{
+  width:100%!important;min-width:0!important;height:150px!important;min-height:150px!important;
+  max-height:150px!important;aspect-ratio:auto!important;
+}
+
+.stage .thumbs.scroll-disabled::-webkit-scrollbar{width:0!important;height:0!important}
+.stage .thumbs.scroll-enabled::-webkit-scrollbar{width:9px!important;height:0!important}
+.stage .thumbs.scroll-enabled::-webkit-scrollbar-track{background:#101c22!important;border-radius:10px!important}
+.stage .thumbs.scroll-enabled::-webkit-scrollbar-thumb{background:#4a6875!important;border-radius:10px!important;border:2px solid #101c22!important}
+
+@media (min-width:701px) and (max-width:1100px){
+  .stage.screen-active:not(.pinned){
+    grid-template-columns:minmax(0,1fr) minmax(250px,32%)!important;
+    height:calc(100dvh - 175px)!important;min-height:320px!important;padding:10px!important;gap:10px!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen{grid-template-columns:1fr!important;grid-auto-rows:120px!important;gap:8px!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:120px!important;min-height:120px!important;max-height:120px!important}
+  .stage.gallery-only:not(.pinned){height:calc(100dvh - 175px)!important;min-height:240px!important;padding:10px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery{grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-auto-rows:110px!important;gap:8px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:110px!important;min-height:110px!important;max-height:110px!important}
+}
+
+@media (max-width:700px){
+  .stage.screen-active:not(.pinned){
+    display:grid!important;grid-template-columns:1fr!important;grid-template-rows:minmax(200px,52dvh) minmax(96px,1fr)!important;
+    height:calc(100dvh - 165px)!important;min-height:300px!important;max-height:calc(100dvh - 165px)!important;padding:7px!important;gap:7px!important;
+  }
+  .stage.screen-active:not(.pinned) .main-tile{height:100%!important;min-height:0!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:96px!important;gap:7px!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:96px!important;min-height:96px!important;max-height:96px!important}
+  .stage.gallery-only:not(.pinned){height:calc(100dvh - 165px)!important;min-height:220px!important;max-height:calc(100dvh - 165px)!important;padding:7px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:96px!important;gap:7px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:96px!important;min-height:96px!important;max-height:96px!important}
+}
