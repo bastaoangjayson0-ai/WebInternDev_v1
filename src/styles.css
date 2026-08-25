@@ -2140,3 +2140,49 @@ html,body,#root{min-height:100%;max-width:100%;overflow-x:hidden}
 .stage .thumbs.needs-scroll::-webkit-scrollbar{width:10px!important;height:0!important}
 .stage .thumbs.needs-scroll::-webkit-scrollbar-track{background:#101c22!important;border-radius:10px!important}
 .stage .thumbs.needs-scroll::-webkit-scrollbar-thumb{background:#4a6875!important;border-radius:10px!important;border:2px solid #101c22!important}
+
+
+/* v1.12.2 — true overflow-gated participant scrolling
+   Small calls do not create a scroll container. Once participant tiles no
+   longer fit in the visible gallery, JS adds .scroll-enabled and the gallery
+   becomes the only scroll viewport. This keeps page/control scrolling working
+   for 1–3 visible participants while making mouse wheel + touch reliable for
+   larger calls on desktop, laptop, phone and tablet. */
+.stage .thumbs.scroll-disabled{
+  overflow-y:hidden!important;
+  overflow-x:hidden!important;
+  touch-action:auto!important;
+  overscroll-behavior:auto!important;
+  scrollbar-gutter:auto!important;
+}
+.stage .thumbs.scroll-enabled{
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;
+  overscroll-behavior-y:contain!important;
+  overscroll-behavior-x:none!important;
+  scrollbar-gutter:stable!important;
+  cursor:default;
+}
+.stage .thumbs.scroll-enabled::-webkit-scrollbar{width:10px!important;height:0!important}
+.stage .thumbs.scroll-enabled::-webkit-scrollbar-track{background:#101c22!important;border-radius:10px!important}
+.stage .thumbs.scroll-enabled::-webkit-scrollbar-thumb{background:#4a6875!important;border-radius:10px!important;border:2px solid #101c22!important}
+.stage .thumbs.scroll-disabled::-webkit-scrollbar{width:0!important;height:0!important}
+
+/* When screen sharing, apply the same gate to the participant rail. */
+.stage.screen-active .thumbs.with-screen.scroll-disabled{
+  overflow-y:hidden!important;
+  touch-action:auto!important;
+}
+.stage.screen-active .thumbs.with-screen.scroll-enabled{
+  overflow-y:auto!important;
+  touch-action:pan-y!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+
+@media (max-width:700px){
+  .stage .thumbs.scroll-enabled{
+    touch-action:pan-y!important;
+  }
+}

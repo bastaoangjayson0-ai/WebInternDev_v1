@@ -864,17 +864,48 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const showingScreen=Boolean(mainScreen);
  const galleryRef=useRef(null);
  const [galleryNeedsScroll,setGalleryNeedsScroll]=useState(false);
+ // Scrolling is activated only when participant tiles actually overflow the
+ // visible gallery viewport. For small calls with everything visible, the
+ // gallery stays non-scrollable so the normal page/control area remains close.
+ const checkGalleryOverflow=()=>{
+   const el=galleryRef.current;
+   if(!el)return;
+   const hasOverflow=el.scrollHeight > el.clientHeight + 2;
+   setGalleryNeedsScroll(hasOverflow);
+ };
  useEffect(()=>{
    const el=galleryRef.current;
    if(!el)return;
-   const check=()=>setGalleryNeedsScroll(el.scrollHeight > el.clientHeight + 1);
-   check();
-   const ro=new ResizeObserver(check);
+   checkGalleryOverflow();
+   const ro=new ResizeObserver(()=>checkGalleryOverflow());
    ro.observe(el);
-   window.addEventListener('resize',check);
-   const raf=requestAnimationFrame(check);
-   return()=>{ro.disconnect();window.removeEventListener('resize',check);cancelAnimationFrame(raf);};
+   const stage=el.parentElement;
+   if(stage) ro.observe(stage);
+   window.addEventListener('resize',checkGalleryOverflow);
+   window.addEventListener('orientationchange',checkGalleryOverflow);
+   const raf=requestAnimationFrame(checkGalleryOverflow);
+   return()=>{
+     ro.disconnect();
+     window.removeEventListener('resize',checkGalleryOverflow);
+     window.removeEventListener('orientationchange',checkGalleryOverflow);
+     cancelAnimationFrame(raf);
+   };
  },[participantCount,showingScreen,screenFullscreen]);
+ // Keep wheel scrolling reliable even when the cursor is directly over a
+ // participant tile/video. If the gallery has overflow, consume the wheel and
+ // scroll the participant viewport. If it does not overflow, do nothing so the
+ // page can scroll normally.
+ const handleGalleryWheel=(event)=>{
+   const el=galleryRef.current;
+   if(!el || !galleryNeedsScroll)return;
+   const delta=event.deltaY || event.deltaX || 0;
+   if(!delta)return;
+   const maxScroll=Math.max(0,el.scrollHeight-el.clientHeight);
+   if(maxScroll<=1)return;
+   const before=el.scrollTop;
+   el.scrollTop=Math.max(0,Math.min(maxScroll,before+delta));
+   if(el.scrollTop!==before || delta!==0) event.preventDefault();
+ };
  const toggleScreenFullscreen=()=>{
    // App fullscreen avoids the browser/Android instructional banner.
    setScreenFullscreen(v=>!v);
@@ -893,7 +924,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        <div className="reaction-layer" aria-live="polite">{reactions.map((r,i)=><div className="floating-reaction" style={{left:`${8+((i*19+Math.floor((r.seed||0)*31))%82)}%`,animationDelay:`${(i%3)*65}ms`}} key={r.id} title={`${r.name}: ${r.emoji}`}><span className="reaction-glow"/><span className="reaction-ring"/><span className="reaction-particle p1"/><span className="reaction-particle p2"/><span className="reaction-particle p3"/><span className="reaction-emoji">{r.emoji}</span></div>)}</div>{chatNotice&&<div className="chat-notice-pop" role="status" aria-live="polite"><span className="chat-notice-icon"><MeetingIcon type="chat"/></span><span className="chat-notice-copy"><b>{chatNotice.name}</b><span>{chatNotice.text}</span></span></div>}
        <button type="button" className="screen-fit-button" aria-label={screenFullscreen?'Exit full screen':'Full screen shared screen'} title={screenFullscreen?'Exit full screen':'Full screen'} onClick={toggleScreenFullscreen}><MeetingIcon type={screenFullscreen?'fullscreenExit':'fullscreen'}/></button>
      </div>}
-     <div ref={galleryRef} className={`thumbs ${showingScreen?'with-screen':'full-gallery'} ${galleryNeedsScroll?'needs-scroll':''}`} aria-label="Meeting participants">{orderedParticipants.map((p,i)=><ParticipantTile key={p.participant?.identity||p.participant?.sid||`${p.name}-${p.index}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={p.effect} isSpeaking={p.speaking}/>)}</div>
+     <div ref={galleryRef} onWheel={handleGalleryWheel} className={`thumbs ${showingScreen?'with-screen':'full-gallery'} ${galleryNeedsScroll?'needs-scroll scroll-enabled':'scroll-disabled'}`} aria-label="Meeting participants">{orderedParticipants.map((p,i)=><ParticipantTile key={p.participant?.identity||p.participant?.sid||`${p.name}-${p.index}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={p.effect} isSpeaking={p.speaking}/>)}</div>
    </div>
    <div className="remote-audio" aria-hidden="true">{participants.map(p=><RemoteAudio key={p.identity} participant={p}/>)}</div>
    {micError&&<div className="meeting-status-error">Microphone: {micError} <button className="ghost small" onClick={toggleMic}>Try microphone again</button></div>}

@@ -1,1 +1,1 @@
-WebInternDev v1.12.0 — Compact small calls + space-based participant scrolling + active speaker priority preserved
+WebInternDev v1.12.2 - Overflow-Gated Participant Scrolling
