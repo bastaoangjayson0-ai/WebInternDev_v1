@@ -1,1 +1,1 @@
-WebInternDev v1.10.7 — Admin Room Password Controls + Developer Join Notice + Chat Read Indicators
+WebInternDev v1.10.8 — Google Meet-style adaptive participant gallery / screen-share layout

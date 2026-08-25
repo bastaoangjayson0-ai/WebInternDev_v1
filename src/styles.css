@@ -1406,3 +1406,99 @@ html,body,#root{min-height:100%;max-width:100%;overflow-x:hidden}
 @media (max-width:943px){
   .room-password-actions{grid-column:1 / -1}
 }
+
+
+/* v1.10.8: Google Meet-style adaptive participant gallery.
+   When nobody is sharing, the presentation surface disappears completely and
+   participant tiles take the full stage. When a screen is shared, the screen
+   gets the large focus area and participants become a compact side gallery. */
+.stage.gallery-only{
+  display:block!important;
+  width:min(1400px,100%)!important;
+  min-height:calc(100vh - 190px)!important;
+  padding:18px!important;
+}
+.stage.gallery-only .thumbs.full-gallery{
+  width:100%;
+  height:auto;
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  grid-auto-rows:minmax(150px,1fr);
+  gap:12px;
+  overflow:visible;
+  align-content:start;
+}
+.stage.gallery-only .thumb.full-gallery,
+.stage.gallery-only .thumb{
+  width:100%;
+  min-width:0;
+  min-height:150px;
+  height:auto;
+  aspect-ratio:16/10;
+  border-radius:16px;
+  padding:12px;
+}
+.stage.gallery-only .thumb .thumb-video,
+.stage.gallery-only .thumb .thumb-video video{
+  width:100%;height:100%;
+}
+.stage.gallery-only .thumb .participant-avatar-fallback img{width:clamp(58px,9vw,110px);height:clamp(58px,9vw,110px)}
+
+.stage.screen-active:not(.pinned){
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(210px,27vw)!important;
+  gap:12px!important;
+  width:min(1400px,100%)!important;
+  min-height:calc(100vh - 190px)!important;
+  padding:18px!important;
+}
+.stage.screen-active:not(.pinned) .main-tile{
+  width:100%;height:auto;min-height:0;aspect-ratio:var(--screen-aspect,16/9)!important;
+  max-height:calc(100vh - 225px);border-radius:18px;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen{
+  display:grid;
+  grid-template-columns:1fr;
+  grid-auto-rows:minmax(110px,1fr);
+  gap:10px;
+  min-width:0;
+  max-height:calc(100vh - 225px);
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding-right:2px;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{
+  width:100%;height:auto;min-height:110px;aspect-ratio:16/10;border-radius:14px;
+}
+
+/* The shared screen is intentionally removed from the DOM when sharing stops.
+   This makes the gallery expand immediately instead of leaving an empty
+   "Screen Share" placeholder behind. */
+@media (max-width:900px){
+  .stage.gallery-only{padding:10px!important;min-height:auto!important}
+  .stage.gallery-only .thumbs.full-gallery{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    grid-auto-rows:auto;
+    gap:9px;
+  }
+  .stage.gallery-only .thumb{min-height:110px;aspect-ratio:16/10;border-radius:13px}
+  .stage.screen-active:not(.pinned){
+    display:flex!important;flex-direction:column!important;
+    gap:9px!important;padding:10px!important;min-height:auto!important;
+  }
+  .stage.screen-active:not(.pinned) .main-tile{
+    width:100%;max-height:none;aspect-ratio:var(--screen-aspect,16/9)!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen{
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:auto;
+    max-height:none;overflow:visible;gap:8px;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{min-height:88px;aspect-ratio:16/10}
+}
+@media (max-width:560px){
+  .stage.gallery-only .thumbs.full-gallery{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .stage.gallery-only .thumb{min-height:88px;border-radius:11px;padding:7px}
+  .stage.gallery-only .thumb .participant-avatar-fallback img{width:clamp(42px,15vw,64px);height:clamp(42px,15vw,64px)}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{min-height:78px}
+}
