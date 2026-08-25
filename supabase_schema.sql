@@ -63,6 +63,7 @@ alter publication supabase_realtime add table public.wid_attendance;
 
 -- WebInternDev v1.9.9 migration: room passwords + global Admin emote control.
 alter table public.wid_rooms add column if not exists room_password text not null default '';
+notify pgrst, 'reload schema';
 alter table public.wid_settings add column if not exists emote_enabled boolean not null default true;
 update public.wid_settings set emote_enabled=true where id=1 and emote_enabled is null;
 

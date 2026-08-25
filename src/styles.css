@@ -1393,3 +1393,16 @@ html,body,#root{min-height:100%;max-width:100%;overflow-x:hidden}
 
 /* Keep scrolling active during screen sharing too. */
 .stage.screen-active:not(.pinned) .thumbs{overflow-y:scroll!important;overflow-x:hidden!important;touch-action:pan-y!important;-webkit-overflow-scrolling:touch!important}
+
+/* v1.10.7 — explicit room password controls + chat read indicators */
+.room-password-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.chat-msg.local{position:relative;padding-right:34px}
+.chat-read-status{position:absolute;right:11px;bottom:8px;font-size:10px;line-height:1;color:#ff5c7a;letter-spacing:.04em}
+.chat-read-status.read{color:#25a56a}
+@media (max-width:700px){
+  .room-password-actions{justify-content:stretch}
+  .room-password-actions .small{flex:1 1 140px}
+}
+@media (max-width:943px){
+  .room-password-actions{grid-column:1 / -1}
+}

@@ -1,1 +1,1 @@
-1.10.5
+WebInternDev v1.10.7 — Admin Room Password Controls + Developer Join Notice + Chat Read Indicators

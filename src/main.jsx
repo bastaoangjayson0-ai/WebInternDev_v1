@@ -146,7 +146,7 @@ function App(){
    const id=crypto.randomUUID();
    const createdAt=new Date().toISOString();
    try{
-     const rows=await dbInsert('wid_rooms',{id,title:title.trim(),host:name,participants:0,active:true,created_at:createdAt,room_password:''});
+     const rows=await dbInsert('wid_rooms',{id,title:title.trim(),host:name,participants:0,active:true,created_at:createdAt});
      const saved=Array.isArray(rows)&&rows[0]?mapRoom(rows[0]):{id,title:title.trim(),host:name,participants:0,active:true,createdAt};
      setRooms(prev=>[saved,...prev.filter(r=>r.id!==saved.id)]);
      setSyncStatus('online');
@@ -232,7 +232,7 @@ function AdminPanel({view,close,credentials,setCredentials,rooms,setRooms,emoteE
  const [hostPwd,setHostPwd]=useState(credentials.hostPassword),[userPwd,setUserPwd]=useState(credentials.userPassword);
  const [securitySaving,setSecuritySaving]=useState(false);
  const toggleEmotes=async(next)=>{setEmoteEnabled(next);try{await dbUpsert('wid_settings',{id:1,host_password:credentials.hostPassword,user_password:credentials.userPassword,emote_enabled:next,updated_at:new Date().toISOString()});toast(next?'Emotes enabled for all rooms.':'Emotes disabled for everyone.');}catch(e){toast('Saved on this device, but online emote control needs the updated Supabase schema.')}};
- const saveRoomPassword=async(room,passwordValue)=>{setSecuritySaving(true);const clean=String(passwordValue||'').trim();try{await dbUpdate('wid_rooms',`?id=eq.${encodeURIComponent(room.id)}`,{room_password:clean});setRooms(list=>list.map(r=>r.id===room.id?{...r,roomPassword:clean}:r));toast(clean?`Password set for ${room.title}.`:`Room password removed for ${room.title}.`);}catch(e){toast(`Could not save room password: ${e.message}`)}finally{setSecuritySaving(false)}};
+ const saveRoomPassword=async(room,passwordValue)=>{setSecuritySaving(true);const clean=String(passwordValue||'').trim();try{await dbUpdate('wid_rooms',`?id=eq.${encodeURIComponent(room.id)}`,{room_password:clean});setRooms(list=>list.map(r=>r.id===room.id?{...r,roomPassword:clean}:r));toast(clean?`Password set for ${room.title}.`:`Room password removed for ${room.title}.`);}catch(e){const msg=String(e?.message||e);if(/room_password|PGRST204|schema cache/i.test(msg)){toast('Room password was NOT saved online. Supabase is missing public.wid_rooms.room_password. Run supabase_room_password_migration.sql in Supabase SQL Editor, then refresh.');}else{toast(`Could not save room password: ${msg}`);}}finally{setSecuritySaving(false)}};
  const savePasswords=async()=>{if(!hostPwd.trim()||!userPwd.trim()){toast('Passwords cannot be empty.');return}setCredentials(c=>({...c,hostPassword:hostPwd,userPassword:userPwd}));try{await dbUpsert('wid_settings',{id:1,host_password:hostPwd,user_password:userPwd,updated_at:new Date().toISOString()});toast('Host and User passwords updated online.');close()}catch(e){toast('Saved locally, but Supabase update failed. Run supabase_schema.sql and check RLS.')}};
  const removeUser=(idx)=>{const u=users[idx];setUsers(list=>list.filter((_,i)=>i!==idx));toast(`${u.name} removed from the local user list.`)};
  const deleteAttendance=async(id)=>{try{await dbDelete('wid_attendance',`?id=eq.${encodeURIComponent(id)}`);setAttendance(list=>list.filter(x=>x.id!==id));toast?.('Call history entry deleted.')}catch(e){toast?.(`Could not delete call history: ${e.message}`)}};
@@ -240,11 +240,11 @@ function AdminPanel({view,close,credentials,setCredentials,rooms,setRooms,emoteE
  return <div className="admin-panel"><div className="admin-panel-head"><div><span className="eyebrow">Admin Control</span><h2>{view==='users'?'User Management':view==='passwords'?'Password Management':view==='security'?'Emote & Room Security':'Attendance'}</h2></div><button className="ghost" onClick={close}>Close</button></div>
  {view==='users'&&<div className="table-wrap">{users.length?<table><thead><tr><th>Name</th><th>Role</th><th>Access</th><th></th></tr></thead><tbody>{users.map((u,i)=><tr key={`${u.name}-${u.role}-${i}`}><td>{u.name}</td><td>{u.role}</td><td><span className="status">Active</span></td><td><button className="danger small" onClick={()=>removeUser(i)}>Remove</button></td></tr>)}</tbody></table>:<div className="empty"><b>No users recorded yet.</b><p>A Host or User will appear here after entering the platform.</p></div>}</div>}
  {view==='passwords'&&<div className="password-grid"><label>Host password<input type="password" value={hostPwd} onChange={e=>setHostPwd(e.target.value)}/></label><label>User password<input type="password" value={userPwd} onChange={e=>setUserPwd(e.target.value)}/></label><div className="panel-actions"><button className="primary" onClick={savePasswords}>Save Passwords</button><button className="ghost" onClick={()=>{setHostPwd(DEFAULTS.hostPassword);setUserPwd(DEFAULTS.userPassword)}}>Reset defaults</button></div></div>}
- {view==='security'&&<div className="security-admin"><div className="security-toggle"><div><b>Interactive Emotes</b><small>{emoteEnabled?'SHEEESHHH and FAAAAH are available to everyone.':'All interactive emotes are disabled for everyone.'}</small></div><button className={emoteEnabled?'primary':'danger'} onClick={()=>toggleEmotes(!emoteEnabled)}>{emoteEnabled?'Disable Emotes':'Enable Emotes'}</button></div><div className="room-security-list"><h3>Room passwords</h3><p className="muted">Set or remove a password for any active Host-created room. Users must enter it before joining.</p>{rooms.length?rooms.map(room=><RoomSecurityRow key={room.id} room={room} disabled={securitySaving} onSave={saveRoomPassword}/>):<div className="empty"><b>No active rooms.</b><p>Create a meeting first, then set its password here.</p></div>}</div></div>}
+ {view==='security'&&<div className="security-admin"><div className="security-toggle"><div><b>Interactive Emotes</b><small>{emoteEnabled?'SHEEESHHH and FAAAAH are available to everyone.':'All interactive emotes are disabled for everyone.'}</small></div><button className={emoteEnabled?'primary':'danger'} onClick={()=>toggleEmotes(!emoteEnabled)}>{emoteEnabled?'Disable Emotes':'Enable Emotes'}</button></div><div className="room-security-list"><h3>Room passwords</h3><p className="muted">Set or remove a password for any active Host-created room. Users must enter it before joining. If saving reports <b>room_password</b> missing, run <code>supabase_room_password_migration.sql</code> once in Supabase SQL Editor.</p>{rooms.length?rooms.map(room=><RoomSecurityRow key={room.id} room={room} disabled={securitySaving} onSave={saveRoomPassword}/>):<div className="empty"><b>No active rooms.</b><p>Create a meeting first, then set its password here.</p></div>}</div></div>}
  {view==='attendance'&&<div className="table-wrap"><div className="history-actions"><b>Call & Attendance History</b>{attendance.length>0&&<button className="danger small" onClick={clearAttendance}>Clear all history</button>}</div>{attendance.length?<table><thead><tr><th>Name</th><th>Role</th><th>Meeting</th><th>Joined</th><th>Left</th><th>Duration</th><th>Action</th></tr></thead><tbody>{attendance.slice().reverse().map(a=><tr key={a.id}><td>{a.name}</td><td>{a.role}</td><td>{a.roomTitle}</td><td>{formatDate(a.joinedAt)}</td><td>{a.leftAt?formatDate(a.leftAt):<span className="status">In meeting</span>}</td><td>{a.duration!=null?`${a.duration} min`:'—'}</td><td><button className="danger small" onClick={()=>deleteAttendance(a.id)}>Delete</button></td></tr>)}</tbody></table>:<div className="empty"><b>No call history yet.</b><p>Call and attendance history is recorded when a Host or User joins a meeting.</p></div>}</div>}
  </div>
 }
-function RoomSecurityRow({room,disabled,onSave}){const [value,setValue]=useState(room.roomPassword||'');useEffect(()=>setValue(room.roomPassword||''),[room.roomPassword]);return <div className="room-security-row"><div><b>{room.title}</b><small>Host: {room.host}</small></div><input type="password" value={value} onChange={e=>setValue(e.target.value)} placeholder="No password" autoComplete="new-password"/><button className="primary small" disabled={disabled} onClick={()=>onSave(room,value)}>Save</button></div>}
+function RoomSecurityRow({room,disabled,onSave}){const [value,setValue]=useState(room.roomPassword||'');useEffect(()=>setValue(room.roomPassword||''),[room.roomPassword]);const hasPassword=Boolean(room.roomPassword);return <div className="room-security-row"><div><b>{room.title}</b><small>Host: {room.host} • {hasPassword?'Password protected':'No room password'}</small></div><input type="password" value={value} onChange={e=>setValue(e.target.value)} placeholder={hasPassword?'Enter new password':'Create password'} autoComplete="new-password"/><div className="room-password-actions"><button className="primary small" disabled={disabled||!value.trim()} onClick={()=>onSave(room,value)}>{hasPassword?'Change Password':'Set Password'}</button>{hasPassword&&<button className="danger small" disabled={disabled} onClick={()=>onSave(room,'')}>Remove Password</button>}</div></div>}
 function formatDate(v){return new Date(v).toLocaleString([], {dateStyle:'short',timeStyle:'short'})}
 function Stat({n,t}){return <div className="stat"><strong>{n}</strong><span>{t}</span></div>}
 function RoomCard({room,role,onJoin,onEnd}){return <div className="room-card"><div className="room-top"><span className="live">● LIVE</span><span>{room.participants}/50</span></div><h3>{room.title}</h3><p className="muted">Host: {room.host}{room.roomPassword?' • 🔒 Password protected':''}</p><div className="room-actions">{role==='admin'?<><button className="primary" onClick={onJoin}>Join Room</button><button className="danger" onClick={onEnd}>End Meeting</button></>:<button className="primary" onClick={onJoin}>{role==='host'?'Open Meeting':'Join Meeting'}</button>}</div></div>}
@@ -280,6 +280,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const [screenEpoch,setScreenEpoch]=useState(0);
  const [chat,setChat]=useState([]);
  const [chatNotice,setChatNotice]=useState(null);
+ const [chatUnreadCount,setChatUnreadCount]=useState(0);
  const chatNoticeTimerRef=useRef(null);
  const [message,setMessage]=useState('');
  const [micError,setMicError]=useState('');
@@ -297,6 +298,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
   const liveRoomRef=useRef(null);
  const chatEndRef=useRef(null);
  const seenChatIdsRef=useRef(new Set());
+ const chatReadIdsRef=useRef(new Set());
  const seenInteractiveIdsRef=useRef(new Set());
  const mounted=useRef(true);
  const screenTrackRef=useRef(null);
@@ -388,12 +390,21 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
              try { participantRole=JSON.parse(participant.metadata)?.role || 'user'; } catch {}
            }
            if(participantRole==='admin'){
-             setToast?.(`Admin ${participant?.name || participant?.identity || 'Admin'} is joining the meeting.`);
+             setToast?.('Developer of this Site is joining the meeting.');
            }
          } catch {}
        });
        liveRoom.on(RoomEvent.ParticipantDisconnected,(participant)=>{
-         setActiveSpeakerIds(ids=>ids.filter(id=>id!==String(participant?.identity||'')));
+         const leavingId=String(participant?.identity||'');
+         setActiveSpeakerIds(ids=>ids.filter(id=>id!==leavingId));
+         if(leavingId){
+           setChat(current=>current.map(item=>{
+             if(!item.local || !item.pendingFor?.has(leavingId)) return item;
+             const nextPending=new Set(item.pendingFor);
+             nextPending.delete(leavingId);
+             return {...item,pendingFor:nextPending};
+           }));
+         }
          refresh();
        });
        liveRoom.on(RoomEvent.TrackSubscribed,(track,publication,participant)=>{
@@ -442,15 +453,37 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
          setChatNotice({id:crypto.randomUUID(),name:sender||'Participant',text:String(text||'').trim()});
          chatNoticeTimerRef.current=setTimeout(()=>{setChatNotice(null);chatNoticeTimerRef.current=null;},3200);
        };
+       const publishChatRead=async(ids)=>{
+         const r=liveRoomRef.current;
+         const cleanIds=[...new Set((ids||[]).filter(Boolean))];
+         if(!r || r.state!=='connected' || !cleanIds.length)return;
+         try{
+           const data=new TextEncoder().encode(JSON.stringify({type:'chat_read',ids:cleanIds,readerId:r.localParticipant.identity,readerName:name}));
+           await r.localParticipant.publishData(data,{reliable:true,topic:'chat-read'});
+           cleanIds.forEach(id=>chatReadIdsRef.current.add(id));
+         }catch(e){console.warn('Chat read receipt failed:',e);}
+       };
        const appendChatMessage=(message,participant,local=false)=>{
          const text=typeof message==='string' ? message : (message?.message || message?.text || message?.content);
          const id=(typeof message==='object' && message?.id) ? message.id : crypto.randomUUID();
          if(typeof text!=='string' || !text.trim() || seenChatIdsRef.current.has(id)) return;
          seenChatIdsRef.current.add(id);
          const sender=local ? name : (participant?.name || participant?.identity || 'Participant');
+         const senderId=local ? liveRoom?.localParticipant?.identity : (participant?.identity || '');
          const clean=text.trim();
-         setChat(c=>c.concat({id,name:sender,text:clean,local}));
-         if(!local) showChatNotice(sender,clean);
+         const pendingFor=local ? new Set(Array.from(liveRoom?.remoteParticipants?.values?.()||[]).map(p=>p.identity).filter(Boolean)) : new Set();
+         const entry={id,name:sender,text:clean,local,senderId,pendingFor,readBy:new Set()};
+         setChat(c=>c.concat(entry));
+         if(!local){
+           showChatNotice(sender,clean);
+           const panel=document.getElementById('chat-panel');
+           const panelOpen=panel?.classList.contains('open');
+           if(panelOpen){
+             setTimeout(()=>publishChatRead([id]),0);
+           }else{
+             setChatUnreadCount(v=>v+1);
+           }
+         }
        };
        liveRoom.on(RoomEvent.ChatMessage,(chatMessage,participant)=>{
          try{ appendChatMessage(chatMessage,participant,participant?.identity===liveRoom.localParticipant.identity); }
@@ -462,7 +495,22 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
            const text = typeof payload === 'string' ? payload : new TextDecoder().decode(payload);
            const msg=JSON.parse(text);
            if(topic==='system' && msg?.type==='admin_joining'){
-             setToast?.(`Admin ${msg.name || 'Admin'} is joining the meeting.`);
+             setToast?.('Developer of this Site is joining the meeting.');
+             return;
+           }
+           if((topic==='chat-read' || msg?.type==='chat_read') && msg?.type==='chat_read'){
+             const readerId=String(participant?.identity || msg.readerId || '');
+             const ids=Array.isArray(msg.ids)?msg.ids:[];
+             if(readerId && ids.length){
+               setChat(current=>current.map(item=>{
+                 if(!item.local || !ids.includes(item.id)) return item;
+                 const nextPending=new Set(item.pendingFor||[]);
+                 nextPending.delete(readerId);
+                 const nextRead=new Set(item.readBy||[]);
+                 nextRead.add(readerId);
+                 return {...item,pendingFor:nextPending,readBy:nextRead};
+               }));
+             }
              return;
            }
            // Accept reactions with or without a LiveKit topic for compatibility.
@@ -515,9 +563,9 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        await liveRoom.connect(data.url, data.token);
        setConnection('connected');
        if(role==='admin'){
-         setToast?.(`Admin ${name} is joining the meeting.`);
+         setToast?.('Developer of this Site is joining the meeting.');
          try {
-           const notice=new TextEncoder().encode(JSON.stringify({type:'admin_joining',name}));
+           const notice=new TextEncoder().encode(JSON.stringify({type:'admin_joining',name,displayText:'Developer of this Site is joining the meeting.'}));
            await liveRoom.localParticipant.publishData(notice,{reliable:true,topic:'system'});
          } catch(e) { console.warn('Admin join notice could not be broadcast:',e); }
        }
@@ -762,21 +810,12 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    if(!text)return;
    if(!r || r.state!=='connected'){setChatError('Chat is waiting for the meeting connection.');setToast?.('Chat is not connected yet.');return;}
    try {
-     let sent;
-     if(typeof r.localParticipant.sendChatMessage==='function'){
-       sent=await r.localParticipant.sendChatMessage(text,{topic:'chat'});
-     } else {
-       const id=crypto.randomUUID();
-       const data=new TextEncoder().encode(JSON.stringify({type:'chat',id,text}));
-       await r.localParticipant.publishData(data,{reliable:true,topic:'chat'});
-       sent={id,message:text};
-     }
-     const localText=typeof sent==='string' ? sent : (sent?.message || sent?.text || sent?.content || text);
-     const localId=(typeof sent==='object' && sent?.id) ? sent.id : crypto.randomUUID();
-     if (localText && !seenChatIdsRef.current.has(localId)) {
-       seenChatIdsRef.current.add(localId);
-       setChat(c=>c.concat({id:localId,name,text:localText.trim(),local:true}));
-     }
+     const id=crypto.randomUUID();
+     const pendingFor=new Set(Array.from(r.remoteParticipants.values()).map(p=>p.identity).filter(Boolean));
+     const data=new TextEncoder().encode(JSON.stringify({type:'chat',id,text,senderId:r.localParticipant.identity,senderName:name}));
+     await r.localParticipant.publishData(data,{reliable:true,topic:'chat'});
+     seenChatIdsRef.current.add(id);
+     setChat(c=>c.concat({id,name,text:text.trim(),local:true,senderId:r.localParticipant.identity,pendingFor,readBy:new Set()}));
      setMessage('');
      setChatError('');
    } catch(err) {
@@ -785,6 +824,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
      setToast?.(`Chat message could not be sent: ${err?.message || 'check the meeting connection.'}`);
    }
  };
+
  const trackForParticipant=(participant,source)=>{
    if(!participant)return null;
    const pubs=Array.from(participant.videoTrackPublications.values());
@@ -854,13 +894,13 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
            </button>)}
          </div>}
        </div>
-       <button aria-label="Open chat" title="Chat" className={`control chat-control${chatNotice?' has-chat-notice':''}`} onClick={()=>{setChatNotice(null);document.getElementById('chat-panel')?.classList.toggle('open')}}><span className="meeting-symbol"><MeetingIcon type="chat"/></span><span>Chat</span>{chatNotice&&<i className="chat-unread-dot" aria-hidden="true"/>}</button>
+       <button aria-label="Open chat" title="Chat" className={`control chat-control${chatNotice||chatUnreadCount?' has-chat-notice':''}`} onClick={()=>{setChatNotice(null);setChatUnreadCount(0);const panel=document.getElementById('chat-panel');panel?.classList.toggle('open');if(!panel?.classList.contains('open'))return;const unreadIds=chat.filter(m=>!m.local && !chatReadIdsRef.current.has(m.id)).map(m=>m.id);if(unreadIds.length)publishChatRead(unreadIds)}}><span className="meeting-symbol"><MeetingIcon type="chat"/></span><span>Chat</span>{(chatNotice||chatUnreadCount>0)&&<i className="chat-unread-dot" aria-hidden="true"/>}</button>
        <button aria-label="Open participants" title="Participants" className="control" onClick={()=>document.getElementById('participants-panel')?.classList.toggle('open')}><span className="meeting-symbol"><MeetingIcon type="people"/></span><span>People</span></button>
        {role==='host'?<button aria-label="End meeting" title="End meeting" className="danger control end-control" onClick={onEnd}><span className="meeting-symbol"><MeetingIcon type="end"/></span><span>End</span></button>:<button aria-label="Leave meeting" title="Leave meeting" className="danger control end-control" onClick={onLeave}><span className="meeting-symbol"><MeetingIcon type="leave"/></span><span>Leave</span></button>}
      </div>
      {role==='host'&&<div className="host-note">Host controls: screen share + pin/unpin. Only the Host can share and pin the screen. Click Share to open the browser's native chooser: select an entire screen, an open window, or a browser tab. You can share a PDF, PowerPoint, Excel sheet, Word file, website, or any other content visible in the selected window/tab. The app uses a minimal capture request to avoid delaying the chooser; the browser/OS controls how quickly its native chooser appears.</div>}
    </div>
-   <aside id="chat-panel" className="meeting-side-panel"><div className="side-head"><b>Chat</b><button onClick={()=>document.getElementById('chat-panel')?.classList.remove('open')}>×</button></div><div className="chat-list">{chat.length?chat.map(m=><div className={m.local?'chat-msg local':'chat-msg'} key={m.id}><b>{m.name}</b><span>{m.text}</span></div>):<p className="muted">{chatReady?'No messages yet.':'Connecting chat…'}</p>}<div ref={chatEndRef}/></div>{chatError&&<div className="chat-error">{chatError}</div>}<form className="chat-form" onSubmit={sendChat}><input value={message} onChange={e=>setMessage(e.target.value)} placeholder={chatReady?'Type a message…':'Connecting chat…'} disabled={!chatReady}/><button className="primary" type="submit" disabled={!chatReady||!message.trim()}>Send</button></form></aside>
+   <aside id="chat-panel" className="meeting-side-panel"><div className="side-head"><b>Chat</b><button onClick={()=>document.getElementById('chat-panel')?.classList.remove('open')}>×</button></div><div className="chat-list">{chat.length?chat.map(m=><div className={m.local?'chat-msg local':'chat-msg'} key={m.id}><b>{m.name}</b><span>{m.text}</span>{m.local&&<small className={`chat-read-status${(m.pendingFor?.size||0)===0?' read':''}`} title={(m.pendingFor?.size||0)>0?`Not read by ${m.pendingFor.size} participant${m.pendingFor.size===1?'':'s'}`:'Read by everyone who received it'}>{(m.pendingFor?.size||0)>0?'●':'✓'}</small>}</div>):<p className="muted">{chatReady?'No messages yet.':'Connecting chat…'}</p>}<div ref={chatEndRef}/></div>{chatError&&<div className="chat-error">{chatError}</div>}<form className="chat-form" onSubmit={sendChat}><input value={message} onChange={e=>setMessage(e.target.value)} placeholder={chatReady?'Type a message…':'Connecting chat…'} disabled={!chatReady}/><button className="primary" type="submit" disabled={!chatReady||!message.trim()}>Send</button></form></aside>
    <aside id="participants-panel" className="meeting-side-panel participants-panel"><div className="side-head"><b>Participants ({participants.length+1})</b><button onClick={()=>document.getElementById('participants-panel')?.classList.remove('open')}>×</button></div><div className="participant-list"><div className="participant-row"><img src={avatar}/><span>{name} <small>• {role}</small></span></div>{participants.map(p=><div className="participant-row" key={p.identity}><img src={avatar}/><span>{p.name||p.identity}</span></div>)}</div></aside>
  </section>
 }

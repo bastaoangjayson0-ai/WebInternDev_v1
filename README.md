@@ -25,3 +25,7 @@ The current build also contains a built-in Supabase fallback so the existing dep
 
 ## Supabase Setup Checker
 The dashboard includes **⚙ Check Supabase setup**. It checks the connection and the required tables and specifically reports whether `public.wid_rooms` is reachable. Missing optional tables no longer prevent active room discovery.
+
+
+## v1.10.6 Room password fix
+If Admin room-password saving reports `PGRST204` for `room_password`, run `supabase_room_password_migration.sql` once in Supabase SQL Editor.
