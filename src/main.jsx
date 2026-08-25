@@ -832,10 +832,8 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  };
  const localParticipant=liveRoomRef.current?.localParticipant||null;
  const allParticipants=[{local:true,participant:localParticipant,name,role},...participants.map(p=>({local:false,participant:p,name:p.name||p.identity,role:p.metadata?(()=>{try{return JSON.parse(p.metadata).role}catch{return 'user'}})():'user'}))];
- // Keep a stable participant order. Speaking/emote activity must NEVER
- // reorder the DOM because that makes the scroll position jump and can make
- // highlights appear on the wrong tile while LiveKit is updating tracks.
- // Activity is represented only by CSS classes on the existing tile.
+ // Preserve the original meeting behavior: active speakers move to the front,
+ // then active emotes, then everyone else. Ordering is stable inside each group.
  const orderedParticipants=allParticipants.map((p,index)=>{
    const identity=String(p.participant?.identity||'').trim();
    const sid=String(p.participant?.sid||'').trim();
@@ -884,8 +882,15 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    window.addEventListener('resize',checkGalleryOverflow);
    window.addEventListener('orientationchange',checkGalleryOverflow);
    const raf=requestAnimationFrame(checkGalleryOverflow);
+   const mo=new MutationObserver(()=>requestAnimationFrame(checkGalleryOverflow));
+   mo.observe(el,{childList:true,subtree:true});
+   const t1=setTimeout(checkGalleryOverflow,50);
+   const t2=setTimeout(checkGalleryOverflow,250);
    return()=>{
      ro.disconnect();
+     mo.disconnect();
+     clearTimeout(t1);
+     clearTimeout(t2);
      window.removeEventListener('resize',checkGalleryOverflow);
      window.removeEventListener('orientationchange',checkGalleryOverflow);
      cancelAnimationFrame(raf);
@@ -924,7 +929,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
        <div className="reaction-layer" aria-live="polite">{reactions.map((r,i)=><div className="floating-reaction" style={{left:`${8+((i*19+Math.floor((r.seed||0)*31))%82)}%`,animationDelay:`${(i%3)*65}ms`}} key={r.id} title={`${r.name}: ${r.emoji}`}><span className="reaction-glow"/><span className="reaction-ring"/><span className="reaction-particle p1"/><span className="reaction-particle p2"/><span className="reaction-particle p3"/><span className="reaction-emoji">{r.emoji}</span></div>)}</div>{chatNotice&&<div className="chat-notice-pop" role="status" aria-live="polite"><span className="chat-notice-icon"><MeetingIcon type="chat"/></span><span className="chat-notice-copy"><b>{chatNotice.name}</b><span>{chatNotice.text}</span></span></div>}
        <button type="button" className="screen-fit-button" aria-label={screenFullscreen?'Exit full screen':'Full screen shared screen'} title={screenFullscreen?'Exit full screen':'Full screen'} onClick={toggleScreenFullscreen}><MeetingIcon type={screenFullscreen?'fullscreenExit':'fullscreen'}/></button>
      </div>}
-     <div ref={galleryRef} onWheel={handleGalleryWheel} className={`thumbs ${showingScreen?'with-screen':'full-gallery'} ${galleryNeedsScroll?'needs-scroll scroll-enabled':'scroll-disabled'}`} aria-label="Meeting participants">{orderedParticipants.map((p,i)=><ParticipantTile key={p.participant?.identity||p.participant?.sid||`${p.name}-${p.index}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={p.effect} isSpeaking={p.speaking}/>)}</div>
+     <div ref={galleryRef} onWheelCapture={handleGalleryWheel} className={`thumbs ${showingScreen?'with-screen':'full-gallery'} ${galleryNeedsScroll?'needs-scroll scroll-enabled':'scroll-disabled'}`} aria-label="Meeting participants">{orderedParticipants.map((p,i)=><ParticipantTile key={p.participant?.identity||p.participant?.sid||`${p.name}-${p.index}`} item={p} avatar={avatar} localCameraEnabled={p.local ? camera : undefined} interactiveEffect={p.effect} isSpeaking={p.speaking}/>)}</div>
    </div>
    <div className="remote-audio" aria-hidden="true">{participants.map(p=><RemoteAudio key={p.identity} participant={p}/>)}</div>
    {micError&&<div className="meeting-status-error">Microphone: {micError} <button className="ghost small" onClick={toggleMic}>Try microphone again</button></div>}
