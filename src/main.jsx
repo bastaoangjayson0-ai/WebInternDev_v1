@@ -868,8 +868,13 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const checkGalleryOverflow=()=>{
    const el=galleryRef.current;
    if(!el)return;
-   const overflow=el.scrollHeight > el.clientHeight + 2;
-   setGalleryNeedsScroll(Boolean(overflow));
+   // Measure the rendered content, not the participant count. A scrollbar is
+   // enabled only when at least one rendered tile is outside the visible
+   // viewport. The grid uses fixed/minimum tile rows so large calls can truly
+   // overflow instead of shrinking every tile to fit.
+   const overflowY=el.scrollHeight > el.clientHeight + 2;
+   const overflowX=el.scrollWidth > el.clientWidth + 2;
+   setGalleryNeedsScroll(Boolean(overflowY || overflowX));
  };
  useEffect(()=>{
    const el=galleryRef.current;
@@ -905,9 +910,8 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    const el=galleryRef.current;
    if(!el)return;
    const maxScroll=Math.max(0,el.scrollHeight-el.clientHeight);
-   if(maxScroll<=1)return;
    const delta=event.deltaY||0;
-   if(!delta)return;
+   if(maxScroll<=1 || !delta)return;
    const before=el.scrollTop;
    const next=Math.max(0,Math.min(maxScroll,before+delta));
    if(next===before)return;

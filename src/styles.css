@@ -2501,3 +2501,129 @@ html,body,#root{min-height:100%;max-width:100%;overflow-x:hidden}
 @media (min-width:701px) and (max-width:1100px){.stage.screen-active:not(.pinned){grid-template-columns:minmax(0,58fr) minmax(300px,42fr)!important;height:calc(100dvh - 190px)!important;min-height:420px!important;max-height:720px!important;padding:10px!important;gap:10px!important}.stage.screen-active:not(.pinned) .thumbs.with-screen{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:150px!important;gap:8px!important}.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:150px!important;min-height:150px!important;max-height:150px!important}.stage.gallery-only:not(.pinned){height:calc(100dvh - 190px)!important;min-height:300px!important;padding:10px!important}.stage.gallery-only:not(.pinned) .thumbs.full-gallery{grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-auto-rows:140px!important;gap:8px!important}.stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:140px!important;min-height:140px!important;max-height:140px!important}}
 @media (max-width:700px){.stage.screen-active:not(.pinned){grid-template-columns:1fr!important;grid-template-rows:minmax(220px,52dvh) minmax(96px,1fr)!important;width:100%!important;max-width:none!important;height:calc(100dvh - 175px)!important;min-height:360px!important;max-height:none!important;padding:7px!important;gap:7px!important}.stage.screen-active:not(.pinned) .thumbs.with-screen{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:100px!important;gap:7px!important}.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:100px!important;min-height:100px!important;max-height:100px!important}.stage.gallery-only:not(.pinned){width:100%!important;max-width:none!important;height:calc(100dvh - 175px)!important;min-height:240px!important;max-height:none!important;padding:7px!important}.stage.gallery-only:not(.pinned) .thumbs.full-gallery{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:110px!important;gap:7px!important}.stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:110px!important;min-height:110px!important;max-height:110px!important}}
 @media (max-width:380px){.stage.screen-active:not(.pinned){grid-template-rows:minmax(200px,50dvh) minmax(90px,1fr)!important}.stage.screen-active:not(.pinned) .thumbs.with-screen{grid-auto-rows:92px!important}.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:92px!important;min-height:92px!important;max-height:92px!important}.stage.gallery-only:not(.pinned) .thumbs.full-gallery{grid-auto-rows:92px!important}.stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:92px!important;min-height:92px!important;max-height:92px!important}}
+
+/* v1.12.7 — FINAL CLEAN MEETING STAGE / OVERFLOW-GATED SCROLL
+   This block intentionally overrides the earlier experimental gallery rules. */
+.stage.screen-active:not(.pinned){
+  display:grid!important;
+  grid-template-columns:minmax(0,2fr) minmax(280px,1fr)!important;
+  grid-template-rows:minmax(0,1fr)!important;
+  width:100%!important; max-width:none!important;
+  height:min(calc(100dvh - 285px),760px)!important;
+  min-height:360px!important; max-height:none!important;
+  margin:0!important; padding:10px!important; gap:10px!important;
+  overflow:hidden!important; box-sizing:border-box!important;
+}
+.stage.screen-active:not(.pinned) .main-tile{
+  width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;
+  margin:0!important;border-radius:16px!important;overflow:hidden!important;
+}
+.stage.screen-active:not(.pinned) .main-tile .live-video-wrap.screen-video,
+.stage.screen-active:not(.pinned) .main-tile .live-video-wrap.screen-video video{
+  width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;
+}
+.stage.screen-active:not(.pinned) .main-tile .live-video-wrap.screen-video video{
+  object-fit:contain!important;background:#000!important;object-position:center!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen{
+  width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  grid-auto-rows:minmax(0,1fr)!important;grid-auto-flow:row!important;
+  align-content:start!important;align-items:stretch!important;
+  gap:10px!important;padding:0 6px 0 0!important;margin:0!important;box-sizing:border-box!important;
+  overflow-x:hidden!important;overflow-y:hidden!important;
+  touch-action:auto!important;overscroll-behavior:auto!important;scrollbar-gutter:auto!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-enabled{
+  overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;overscroll-behavior-y:contain!important;scrollbar-gutter:stable!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-disabled{
+  overflow-y:hidden!important;touch-action:auto!important;scrollbar-gutter:auto!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{
+  width:100%!important;min-width:0!important;height:auto!important;min-height:130px!important;
+  max-height:none!important;aspect-ratio:16/10!important;border-radius:14px!important;
+  overflow:hidden!important;box-sizing:border-box!important;
+}
+.stage.gallery-only:not(.pinned){
+  display:block!important;width:100%!important;max-width:none!important;
+  height:min(calc(100dvh - 285px),760px)!important;min-height:220px!important;max-height:none!important;
+  margin:0!important;padding:10px!important;box-sizing:border-box!important;
+  overflow:hidden!important;background:#060d12!important;border-radius:16px!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery{
+  width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  grid-auto-rows:minmax(0,1fr)!important;grid-auto-flow:row!important;
+  align-content:start!important;gap:10px!important;padding:0 6px 0 0!important;margin:0!important;
+  box-sizing:border-box!important;overflow-x:hidden!important;overflow-y:hidden!important;
+  touch-action:auto!important;overscroll-behavior:auto!important;scrollbar-gutter:auto!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-enabled{
+  overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;
+  touch-action:pan-y!important;overscroll-behavior-y:contain!important;scrollbar-gutter:stable!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-disabled{
+  overflow-y:hidden!important;touch-action:auto!important;scrollbar-gutter:auto!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{
+  width:100%!important;min-width:0!important;height:auto!important;min-height:140px!important;
+  max-height:none!important;aspect-ratio:16/10!important;border-radius:14px!important;
+  overflow:hidden!important;box-sizing:border-box!important;
+}
+.stage .thumbs.scroll-disabled::-webkit-scrollbar{width:0!important;height:0!important}
+.stage .thumbs.scroll-enabled::-webkit-scrollbar{width:9px!important;height:0!important}
+.stage .thumbs.scroll-enabled::-webkit-scrollbar-track{background:#101c22!important;border-radius:999px!important}
+.stage .thumbs.scroll-enabled::-webkit-scrollbar-thumb{background:#4a6875!important;border-radius:999px!important;border:2px solid #101c22!important}
+
+@media (max-width:900px) and (min-width:701px){
+  .stage.screen-active:not(.pinned){grid-template-columns:minmax(0,1.65fr) minmax(260px,1fr)!important;height:min(calc(100dvh - 250px),680px)!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen{grid-template-columns:1fr!important;grid-auto-rows:auto!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{min-height:130px!important;aspect-ratio:16/10!important}
+  .stage.gallery-only:not(.pinned){height:min(calc(100dvh - 250px),680px)!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:auto!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{min-height:130px!important}
+}
+@media (max-width:700px){
+  .stage.screen-active:not(.pinned){
+    display:grid!important;grid-template-columns:1fr!important;
+    grid-template-rows:minmax(190px,52dvh) minmax(120px,1fr)!important;
+    width:100%!important;height:calc(100dvh - 235px)!important;min-height:300px!important;
+    max-height:none!important;padding:7px!important;gap:7px!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:auto!important;gap:7px!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{min-height:96px!important;aspect-ratio:16/10!important}
+  .stage.gallery-only:not(.pinned){height:calc(100dvh - 235px)!important;min-height:220px!important;padding:7px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:auto!important;gap:7px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{min-height:96px!important}
+}
+
+/* v1.12.7 correction: never use 1fr implicit rows for participant tiles.
+   1fr would shrink all rows to fit and therefore makes scrollHeight equal
+   clientHeight even when there are many participants. */
+.stage.screen-active:not(.pinned) .thumbs.with-screen{grid-auto-rows:150px!important}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:150px!important;min-height:150px!important;max-height:150px!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery{grid-auto-rows:150px!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:150px!important;min-height:150px!important;max-height:150px!important}
+
+/* Small no-share calls collapse to the actual participant content. */
+.stage.gallery-only.compact-gallery:not(.pinned){
+  height:auto!important;min-height:0!important;max-height:none!important;
+  padding:10px!important;overflow:visible!important;background:transparent!important;
+}
+.stage.gallery-only.compact-gallery:not(.pinned) .thumbs.full-gallery{
+  height:auto!important;min-height:0!important;overflow:hidden!important;
+  grid-auto-rows:150px!important;align-content:start!important;
+}
+.stage.gallery-only.compact-gallery:not(.pinned) .thumbs.full-gallery .thumb{
+  height:150px!important;min-height:150px!important;max-height:150px!important;
+}
+
+@media (max-width:700px){
+  .stage.screen-active:not(.pinned) .thumbs.with-screen{grid-auto-rows:100px!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:100px!important;min-height:100px!important;max-height:100px!important}
+  .stage.gallery-only.compact-gallery:not(.pinned){height:auto!important;min-height:0!important}
+  .stage.gallery-only.compact-gallery:not(.pinned) .thumbs.full-gallery{grid-auto-rows:110px!important}
+  .stage.gallery-only.compact-gallery:not(.pinned) .thumbs.full-gallery .thumb{height:110px!important;min-height:110px!important;max-height:110px!important}
+}
