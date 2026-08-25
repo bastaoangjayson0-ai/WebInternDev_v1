@@ -868,21 +868,8 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  const checkGalleryOverflow=()=>{
    const el=galleryRef.current;
    if(!el)return;
-   // Decide from what is actually visible, not from participant count.
-   // A small call stays non-scrollable when every tile fits. Scrolling is
-   // enabled only when at least one tile extends beyond the gallery viewport.
-   const box=el.getBoundingClientRect();
-   const children=Array.from(el.children);
-   let contentBottom=box.top;
-   let contentTop=box.bottom;
-   for(const child of children){
-     const r=child.getBoundingClientRect();
-     contentBottom=Math.max(contentBottom,r.bottom);
-     contentTop=Math.min(contentTop,r.top);
-   }
-   const geometryOverflow=children.length>0 && (contentBottom > box.bottom + 2 || contentTop < box.top - 2);
-   const scrollOverflow=el.scrollHeight > el.clientHeight + 2;
-   setGalleryNeedsScroll(Boolean(geometryOverflow || scrollOverflow));
+   const overflow=el.scrollHeight > el.clientHeight + 2;
+   setGalleryNeedsScroll(Boolean(overflow));
  };
  useEffect(()=>{
    const el=galleryRef.current;
@@ -892,6 +879,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    ro.observe(el);
    const stage=el.parentElement;
    if(stage) ro.observe(stage);
+   Array.from(el.children).forEach(child=>ro.observe(child));
    window.addEventListener('resize',checkGalleryOverflow);
    window.addEventListener('orientationchange',checkGalleryOverflow);
    const raf=requestAnimationFrame(checkGalleryOverflow);
@@ -915,16 +903,15 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  // page can scroll normally.
  const handleGalleryWheel=(event)=>{
    const el=galleryRef.current;
-   if(!el || !galleryNeedsScroll)return;
-   const delta=event.deltaY || event.deltaX || 0;
-   if(!delta)return;
+   if(!el)return;
    const maxScroll=Math.max(0,el.scrollHeight-el.clientHeight);
    if(maxScroll<=1)return;
+   const delta=event.deltaY||0;
+   if(!delta)return;
    const before=el.scrollTop;
    const next=Math.max(0,Math.min(maxScroll,before+delta));
+   if(next===before)return;
    el.scrollTop=next;
-   // The gallery owns the wheel while it is overflowing, even when the
-   // pointer is directly over a video, avatar, or emote overlay.
    event.preventDefault();
    event.stopPropagation();
  };
