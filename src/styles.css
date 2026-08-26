@@ -2653,3 +2653,98 @@ html,body,#root{min-height:100%;max-width:100%;overflow-x:hidden}
 @media (min-width:901px) and (max-height:800px){.stage.screen-active:not(.pinned){height:calc(100dvh - 285px)!important;min-height:430px!important}.stage.screen-active:not(.pinned) .thumbs.with-screen{grid-auto-rows:128px!important}.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:128px!important;min-height:128px!important}}
 @media (max-width:900px){.stage.screen-active:not(.pinned){display:grid!important;grid-template-columns:1fr!important;grid-template-rows:auto auto!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;padding:10px!important;gap:10px!important;overflow:visible!important}.stage.screen-active:not(.pinned) .main-tile{height:auto!important;aspect-ratio:16/9!important;min-height:0!important}.stage.screen-active:not(.pinned) .thumbs.with-screen{height:auto!important;max-height:calc(100dvh - 430px)!important;min-height:0!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:110px!important;gap:8px!important;overflow-y:hidden!important}.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-enabled{overflow-y:auto!important}.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:110px!important;min-height:110px!important}.stage.gallery-only:not(.pinned){padding:10px!important}.stage.gallery-only:not(.pinned) .thumbs.full-gallery{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:110px!important}.stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:110px!important;min-height:110px!important}}
 @media (max-width:520px){.meeting-head{height:56px!important;padding:0 12px!important}.stage.screen-active:not(.pinned) .thumbs.with-screen{grid-auto-rows:96px!important;max-height:calc(100dvh - 390px)!important}.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:96px!important;min-height:96px!important}.stage.gallery-only:not(.pinned) .thumbs.full-gallery{grid-auto-rows:96px!important}.stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:96px!important;min-height:96px!important}}
+
+/* v1.12.9 — definitive meeting stage layout
+   This block is intentionally last so older responsive rules cannot override it. */
+.stage.screen-active:not(.pinned){
+  display:grid!important;
+  grid-template-columns:minmax(0,2fr) minmax(260px,1fr)!important;
+  grid-template-rows:minmax(0,1fr)!important;
+  width:min(1500px,100%)!important;
+  height:min(calc(100dvh - 250px),700px)!important;
+  min-height:420px!important;
+  max-height:700px!important;
+  margin:0 auto!important;
+  padding:14px!important;
+  gap:14px!important;
+  overflow:hidden!important;
+  box-sizing:border-box!important;
+}
+.stage.screen-active:not(.pinned) .main-tile{
+  width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;
+  margin:0!important;position:relative!important;border-radius:18px!important;
+  overflow:hidden!important;background:#020608!important;
+}
+.stage.screen-active:not(.pinned) .main-tile .live-video-wrap.screen-video{
+  position:absolute!important;inset:0!important;width:100%!important;height:100%!important;
+}
+.stage.screen-active:not(.pinned) .main-tile .live-video-wrap.screen-video video{
+  width:100%!important;height:100%!important;object-fit:contain!important;background:#000!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen{
+  width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  grid-auto-rows:150px!important;grid-auto-flow:row!important;align-content:start!important;
+  gap:10px!important;padding:0 4px 0 0!important;margin:0!important;
+  overflow-x:hidden!important;overflow-y:hidden!important;
+  box-sizing:border-box!important;touch-action:pan-y!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-enabled{overflow-y:auto!important}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{
+  width:100%!important;height:150px!important;min-height:150px!important;max-height:none!important;
+  min-width:0!important;aspect-ratio:auto!important;border-radius:14px!important;
+  overflow:hidden!important;box-sizing:border-box!important;background:#202a30!important;
+}
+
+.stage.gallery-only:not(.pinned){
+  display:block!important;width:min(1500px,100%)!important;height:auto!important;min-height:0!important;
+  max-height:none!important;margin:0 auto!important;padding:14px!important;overflow:visible!important;
+  box-sizing:border-box!important;background:transparent!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery{
+  width:100%!important;height:auto!important;min-height:0!important;
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  grid-auto-rows:150px!important;grid-auto-flow:row!important;align-content:start!important;
+  gap:10px!important;padding:0 4px 0 0!important;margin:0!important;
+  overflow-x:hidden!important;overflow-y:hidden!important;box-sizing:border-box!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-enabled{
+  overflow-y:auto!important;max-height:min(calc(100dvh - 250px),700px)!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{
+  width:100%!important;height:150px!important;min-height:150px!important;max-height:none!important;
+  min-width:0!important;aspect-ratio:auto!important;border-radius:14px!important;
+  overflow:hidden!important;box-sizing:border-box!important;background:#202a30!important;
+}
+
+@media (max-width:900px){
+  .stage.screen-active:not(.pinned){
+    grid-template-columns:1fr!important;grid-template-rows:auto auto!important;
+    height:auto!important;min-height:0!important;max-height:none!important;
+    padding:10px!important;gap:10px!important;overflow:visible!important;
+  }
+  .stage.screen-active:not(.pinned) .main-tile{
+    width:100%!important;height:auto!important;aspect-ratio:16/9!important;min-height:0!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen{
+    height:auto!important;max-height:min(calc(100dvh - 390px),360px)!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:110px!important;
+    gap:8px!important;overflow-y:hidden!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-enabled{overflow-y:auto!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:110px!important;min-height:110px!important}
+  .stage.gallery-only:not(.pinned){padding:10px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:110px!important;
+  }
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:110px!important;min-height:110px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-enabled{
+    max-height:min(calc(100dvh - 300px),520px)!important;overflow-y:auto!important;
+  }
+}
+@media (max-width:520px){
+  .stage.screen-active:not(.pinned) .thumbs.with-screen{grid-auto-rows:96px!important;max-height:min(calc(100dvh - 350px),300px)!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:96px!important;min-height:96px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery{grid-auto-rows:96px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:96px!important;min-height:96px!important}
+}
