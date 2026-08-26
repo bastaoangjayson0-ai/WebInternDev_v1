@@ -1,7 +1,7 @@
 {
   "name": "webinterndev",
   "private": true,
-  "version": "1.12.9",
+  "version": "1.13.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
