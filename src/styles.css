@@ -1133,7 +1133,6 @@ html,body,#root{min-height:100%;max-width:100%;overflow-x:hidden}
   .stage:not(.pinned) .thumb{height:108px!important;min-height:108px!important}
 }
 
-/* v1.10.3 — restore participant tile visibility while keeping a real scroll viewport.\n   The previous flex/height:0 rules could collapse the gallery on mobile/tablet. */\n.stage:not(.pinned) .thumbs{\n  flex:0 1 320px!important;\n  height:320px!important;\n  min-height:180px!important;\n  max-height:320px!important;\n  overflow-y:auto!important;\n  overflow-x:hidden!important;\n  display:grid!important;\n  align-content:start!important;\n  touch-action:pan-y!important;\n  -webkit-overflow-scrolling:touch!important;\n}\n@media (min-width:801px){\n  .stage:not(.pinned) .thumbs{\n    flex:0 1 650px!important;\n    height:650px!important;\n    min-height:0!important;\n    max-height:650px!important;\n    grid-template-columns:1fr!important;\n    grid-auto-rows:120px!important;\n  }\n}\n@media (min-width:601px) and (max-width:800px){\n  .stage:not(.pinned){height:auto!important;max-height:none!important;overflow:visible!important;}\n  .stage:not(.pinned) .main-tile{min-height:40dvh!important;height:40dvh!important;max-height:420px!important;}\n  .stage:not(.pinned) .thumbs{\n    flex:0 0 300px!important;height:300px!important;min-height:300px!important;max-height:300px!important;\n    grid-template-columns:repeat(3,minmax(0,1fr))!important;\n    grid-auto-rows:96px!important;gap:8px!important;padding:8px 4px 16px!important;\n  }\n  .stage:not(.pinned) .thumb{height:96px!important;min-height:96px!important;}\n}\n@media (max-width:600px){\n  .stage:not(.pinned){height:auto!important;max-height:none!important;min-height:0!important;overflow:visible!important;}\n  .stage:not(.pinned) .main-tile{min-height:38dvh!important;height:38dvh!important;max-height:360px!important;}\n  .stage:not(.pinned) .thumbs{\n    flex:0 0 288px!important;height:288px!important;min-height:288px!important;max-height:288px!important;\n    grid-template-columns:repeat(2,minmax(0,1fr))!important;\n    grid-auto-rows:88px!important;gap:8px!important;padding:8px 4px 16px!important;\n  }\n  .stage:not(.pinned) .thumb{height:88px!important;min-height:88px!important;}\n}\n@media (max-width:380px){\n  .stage:not(.pinned) .main-tile{min-height:34dvh!important;height:34dvh!important;}\n  .stage:not(.pinned) .thumbs{height:260px!important;min-height:260px!important;max-height:260px!important;grid-auto-rows:80px!important;}\n  .stage:not(.pinned) .thumb{height:80px!important;min-height:80px!important;}\n}\n
 /* v1.10.4 — FINAL PARTICIPANT GALLERY FIX
    The participant gallery is always a bounded scroll viewport on every device.
    Never let the gallery grow to the height of all participants. */
@@ -2747,4 +2746,868 @@ html,body,#root{min-height:100%;max-width:100%;overflow-x:hidden}
   .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:96px!important;min-height:96px!important}
   .stage.gallery-only:not(.pinned) .thumbs.full-gallery{grid-auto-rows:96px!important}
   .stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:96px!important;min-height:96px!important}
+}
+
+
+/* v1.13.0 — FINAL Google Meet-style stage + true overflow-gated participant scrolling.
+   This block is intentionally last and replaces conflicting earlier gallery rules. */
+.meeting{width:100%;min-height:100dvh;background:#071016;color:#edf7fb;overflow-x:hidden!important}
+.stage{box-sizing:border-box;min-width:0!important;width:100%!important;margin:0 auto!important}
+
+/* Screen sharing: presentation left, participant gallery right. */
+.stage.screen-active:not(.pinned){
+  display:grid!important;
+  grid-template-columns:minmax(0,1.62fr) minmax(320px,.88fr)!important;
+  grid-template-rows:minmax(0,1fr)!important;
+  width:min(1500px,100%)!important;
+  height:clamp(480px,calc(100dvh - 265px),700px)!important;
+  min-height:480px!important;
+  max-height:700px!important;
+  padding:14px 18px!important;
+  gap:14px!important;
+  overflow:hidden!important;
+}
+.stage.screen-active:not(.pinned) .main-tile{
+  width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;
+  margin:0!important;border-radius:18px!important;overflow:hidden!important;background:#020608!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen{
+  width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  grid-auto-rows:150px!important;grid-auto-flow:row!important;align-content:start!important;
+  gap:10px!important;padding:0 6px 0 0!important;margin:0!important;
+  overflow-x:hidden!important;overflow-y:hidden!important;
+  overscroll-behavior:contain!important;touch-action:auto!important;scrollbar-gutter:auto!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-enabled{
+  overflow-y:auto!important;touch-action:pan-y!important;scrollbar-gutter:stable!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-disabled{
+  overflow-y:hidden!important;touch-action:auto!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{
+  width:100%!important;height:150px!important;min-height:150px!important;max-height:150px!important;
+  min-width:0!important;aspect-ratio:auto!important;border-radius:14px!important;
+  overflow:hidden!important;position:relative!important;background:#202a30!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .participant-avatar-fallback{
+  width:100%!important;height:100%!important;display:grid!important;place-items:center!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .participant-avatar-fallback>img{width:68px!important;height:68px!important}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb-name{
+  position:absolute!important;left:10px!important;right:10px!important;bottom:10px!important;
+  z-index:4!important;background:rgba(0,0,0,.62)!important;color:#fff!important;
+  padding:3px 7px!important;border-radius:4px!important;max-width:calc(100% - 20px)!important;
+  white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .speaker-active{outline:3px solid #3d8cff!important;outline-offset:-2px!important}
+.stage.screen-active:not(.pinned) .thumbs.with-screen::-webkit-scrollbar{width:8px!important}
+.stage.screen-active:not(.pinned) .thumbs.with-screen::-webkit-scrollbar-track{background:rgba(255,255,255,.05)!important;border-radius:99px!important}
+.stage.screen-active:not(.pinned) .thumbs.with-screen::-webkit-scrollbar-thumb{background:#53636c!important;border-radius:99px!important;border:2px solid #0d171d!important}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-disabled::-webkit-scrollbar{width:0!important}
+
+/* No screen share: participant gallery fills the meeting stage. */
+.stage.gallery-only:not(.pinned){
+  display:block!important;width:min(1500px,100%)!important;height:auto!important;min-height:0!important;
+  max-height:none!important;padding:14px 18px!important;overflow:visible!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery{
+  width:100%!important;height:auto!important;min-height:0!important;display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-auto-rows:150px!important;
+  grid-auto-flow:row!important;align-content:start!important;gap:10px!important;
+  padding:0 6px 0 0!important;margin:0!important;overflow-x:hidden!important;overflow-y:hidden!important;
+  overscroll-behavior:contain!important;touch-action:auto!important;scrollbar-gutter:auto!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-enabled{
+  max-height:min(calc(100dvh - 285px),700px)!important;overflow-y:auto!important;
+  touch-action:pan-y!important;scrollbar-gutter:stable!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-disabled{overflow-y:hidden!important;touch-action:auto!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{
+  width:100%!important;height:150px!important;min-height:150px!important;max-height:150px!important;
+  min-width:0!important;aspect-ratio:auto!important;border-radius:14px!important;overflow:hidden!important;
+  position:relative!important;background:#202a30!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery .participant-avatar-fallback{width:100%!important;height:100%!important;display:grid!important;place-items:center!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery .participant-avatar-fallback>img{width:68px!important;height:68px!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb-name{
+  position:absolute!important;left:10px!important;right:10px!important;bottom:10px!important;z-index:4!important;
+  background:rgba(0,0,0,.62)!important;color:#fff!important;padding:3px 7px!important;border-radius:4px!important;
+  max-width:calc(100% - 20px)!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery .speaker-active{outline:3px solid #3d8cff!important;outline-offset:-2px!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery::-webkit-scrollbar{width:8px!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery::-webkit-scrollbar-thumb{background:#53636c!important;border-radius:99px!important;border:2px solid #0d171d!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-disabled::-webkit-scrollbar{width:0!important}
+
+/* Tablet/phone: one large stage, then a bounded gallery that scrolls ONLY when needed. */
+@media(max-width:900px){
+  .stage.screen-active:not(.pinned){
+    display:flex!important;flex-direction:column!important;width:100%!important;height:auto!important;
+    min-height:0!important;max-height:none!important;padding:10px!important;gap:10px!important;overflow:visible!important;
+  }
+  .stage.screen-active:not(.pinned) .main-tile{
+    width:100%!important;height:auto!important;aspect-ratio:16/9!important;min-height:0!important;flex:0 0 auto!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen{
+    width:100%!important;height:auto!important;max-height:min(52dvh,520px)!important;min-height:0!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:110px!important;gap:8px!important;
+    overflow-x:hidden!important;overflow-y:hidden!important;touch-action:auto!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-enabled{overflow-y:auto!important;touch-action:pan-y!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:110px!important;min-height:110px!important;max-height:110px!important}
+  .stage.gallery-only:not(.pinned){padding:10px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:110px!important;gap:8px!important;
+    overflow-y:hidden!important;touch-action:auto!important;
+  }
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-enabled{max-height:min(62dvh,600px)!important;overflow-y:auto!important;touch-action:pan-y!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:110px!important;min-height:110px!important;max-height:110px!important}
+}
+@media(max-width:520px){
+  .stage.screen-active:not(.pinned) .thumbs.with-screen{grid-auto-rows:96px!important;max-height:min(50dvh,420px)!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:96px!important;min-height:96px!important;max-height:96px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery{grid-auto-rows:96px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:96px!important;min-height:96px!important;max-height:96px!important}
+}
+
+
+/* v1.13.1 — FINAL GOOGLE-MEET-STYLE GALLERY
+   - Screen share: large presentation on the left + 3-column participant gallery on the right.
+   - Gallery scrolls only when rendered participant tiles exceed its viewport.
+   - Small meetings remain non-scrollable.
+   - Touch/wheel scrolling works directly over participant tiles.
+   - Active-speaker/emote ordering is controlled by React and is intentionally preserved. */
+.stage.screen-active:not(.pinned){
+  box-sizing:border-box!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(360px,650px)!important;
+  grid-template-rows:minmax(0,1fr)!important;
+  gap:14px!important;
+  width:min(1500px,100%)!important;
+  height:min(680px,calc(100dvh - 245px))!important;
+  min-height:420px!important;
+  max-height:680px!important;
+  padding:10px!important;
+  overflow:hidden!important;
+  align-items:stretch!important;
+}
+.stage.screen-active:not(.pinned) .main-tile{
+  min-width:0!important;
+  min-height:0!important;
+  width:100%!important;
+  height:100%!important;
+  max-height:none!important;
+  border-radius:16px!important;
+  overflow:hidden!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen{
+  box-sizing:border-box!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-height:none!important;
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  grid-auto-flow:row!important;
+  grid-auto-rows:150px!important;
+  align-content:start!important;
+  gap:10px!important;
+  padding:0 4px 8px 0!important;
+  overflow-x:hidden!important;
+  overflow-y:hidden!important;
+  touch-action:auto!important;
+  overscroll-behavior:contain!important;
+  scrollbar-gutter:auto!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-enabled{
+  overflow-y:auto!important;
+  touch-action:pan-y!important;
+  scrollbar-gutter:stable!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-disabled{
+  overflow-y:hidden!important;
+  touch-action:auto!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{
+  width:100%!important;
+  height:150px!important;
+  min-height:150px!important;
+  max-height:150px!important;
+  min-width:0!important;
+  border-radius:14px!important;
+  overflow:hidden!important;
+  position:relative!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .participant-avatar-fallback{
+  width:100%!important;height:100%!important;display:grid!important;place-items:center!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .participant-avatar-fallback>img{
+  width:68px!important;height:68px!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb-name{
+  position:absolute!important;left:10px!important;right:10px!important;bottom:10px!important;
+  z-index:4!important;background:rgba(0,0,0,.62)!important;color:#fff!important;
+  padding:4px 7px!important;border-radius:5px!important;max-width:calc(100% - 20px)!important;
+  white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .speaker-active{
+  outline:3px solid #3d8cff!important;outline-offset:-2px!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen::-webkit-scrollbar{width:8px!important;height:0!important}
+.stage.screen-active:not(.pinned) .thumbs.with-screen::-webkit-scrollbar-track{background:rgba(255,255,255,.05)!important;border-radius:99px!important}
+.stage.screen-active:not(.pinned) .thumbs.with-screen::-webkit-scrollbar-thumb{background:#53636c!important;border-radius:99px!important;border:2px solid #0d171d!important}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-disabled::-webkit-scrollbar{width:0!important}
+
+/* No screen share: the participant gallery uses the available width. */
+.stage.gallery-only:not(.pinned){
+  box-sizing:border-box!important;
+  display:block!important;
+  width:min(1500px,100%)!important;
+  min-height:0!important;
+  max-height:calc(100dvh - 285px)!important;
+  padding:10px 18px!important;
+  overflow:hidden!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:calc(100dvh - 320px)!important;
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  grid-auto-flow:row!important;
+  grid-auto-rows:150px!important;
+  align-content:start!important;
+  gap:10px!important;
+  padding:0 4px 8px 0!important;
+  margin:0!important;
+  overflow-x:hidden!important;
+  overflow-y:hidden!important;
+  touch-action:auto!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-enabled{
+  overflow-y:auto!important;
+  touch-action:pan-y!important;
+  scrollbar-gutter:stable!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-disabled{overflow-y:hidden!important;touch-action:auto!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{
+  width:100%!important;height:150px!important;min-height:150px!important;max-height:150px!important;
+  min-width:0!important;border-radius:14px!important;overflow:hidden!important;position:relative!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery .participant-avatar-fallback{
+  width:100%!important;height:100%!important;display:grid!important;place-items:center!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery .participant-avatar-fallback>img{width:68px!important;height:68px!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb-name{
+  position:absolute!important;left:10px!important;right:10px!important;bottom:10px!important;z-index:4!important;
+  background:rgba(0,0,0,.62)!important;color:#fff!important;padding:4px 7px!important;border-radius:5px!important;
+  max-width:calc(100% - 20px)!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery .speaker-active{outline:3px solid #3d8cff!important;outline-offset:-2px!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery::-webkit-scrollbar{width:8px!important;height:0!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery::-webkit-scrollbar-thumb{background:#53636c!important;border-radius:99px!important;border:2px solid #0d171d!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-disabled::-webkit-scrollbar{width:0!important}
+
+@media (max-width:1100px){
+  .stage.screen-active:not(.pinned){
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-template-rows:minmax(220px,52dvh) minmax(150px,1fr)!important;
+    width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;
+    padding:8px!important;gap:8px!important;overflow:hidden!important;
+  }
+  .stage.screen-active:not(.pinned) .main-tile{width:100%!important;height:100%!important;min-height:0!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen{
+    width:100%!important;height:auto!important;max-height:min(42dvh,360px)!important;min-height:0!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-auto-rows:110px!important;gap:8px!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:110px!important;min-height:110px!important;max-height:110px!important}
+  .stage.gallery-only:not(.pinned){max-height:none!important;padding:8px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery{max-height:min(70dvh,620px)!important;grid-auto-rows:110px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:110px!important;min-height:110px!important;max-height:110px!important}
+}
+@media (max-width:700px){
+  .stage.screen-active:not(.pinned){grid-template-rows:minmax(190px,40dvh) minmax(145px,1fr)!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:92px!important;max-height:min(38dvh,300px)!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:92px!important;min-height:92px!important;max-height:92px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:92px!important;max-height:min(70dvh,520px)!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:92px!important;min-height:92px!important;max-height:92px!important}
+}
+@media (max-width:380px){
+  .stage.screen-active:not(.pinned){grid-template-rows:minmax(175px,35dvh) minmax(135px,1fr)!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen{grid-auto-rows:84px!important;max-height:min(36dvh,270px)!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:84px!important;min-height:84px!important;max-height:84px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery{grid-auto-rows:84px!important}
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb{height:84px!important;min-height:84px!important;max-height:84px!important}
+}
+
+/* v1.13.2 — definitive aspect-ratio-safe screen share
+   The stage/container determines the available space. The captured screen
+   itself always keeps its native aspect ratio via object-fit:contain.
+   This intentionally avoids forcing the presentation container to 16:9,
+   which is important for portrait phones and 16:10 displays. */
+.stage.screen-active .main-tile,
+.stage.pinned .main-tile{
+  position:relative!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-width:none!important;
+  max-height:none!important;
+  aspect-ratio:auto!important;
+  overflow:hidden!important;
+  background:#000!important;
+}
+.stage.screen-active .main-tile .live-video-wrap.screen-video,
+.stage.pinned .main-tile .live-video-wrap.screen-video{
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-width:none!important;
+  max-height:none!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  overflow:hidden!important;
+  aspect-ratio:auto!important;
+  background:#000!important;
+}
+.stage.screen-active .main-tile .live-video-wrap.screen-video video.screen-video,
+.stage.pinned .main-tile .live-video-wrap.screen-video video.screen-video,
+.stage.screen-active .main-tile .live-video-wrap.screen-video video,
+.stage.pinned .main-tile .live-video-wrap.screen-video video{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  object-fit:contain!important;
+  object-position:center center!important;
+  aspect-ratio:auto!important;
+  background:#000!important;
+  margin:0!important;
+  flex:0 0 auto!important;
+}
+.stage.screen-active .main-tile.app-fullscreen,
+.stage.pinned .main-tile.app-fullscreen{
+  width:100vw!important;
+  height:100dvh!important;
+  max-width:100vw!important;
+  max-height:100dvh!important;
+  aspect-ratio:auto!important;
+}
+@media(max-width:900px){
+  .stage.screen-active .main-tile,
+  .stage.pinned .main-tile{
+    width:100%!important;
+    height:min(70dvh,calc(100dvh - 420px))!important;
+    min-height:220px!important;
+    max-height:70dvh!important;
+    aspect-ratio:auto!important;
+  }
+}
+@media(max-width:520px){
+  .stage.screen-active .main-tile,
+  .stage.pinned .main-tile{
+    height:min(68dvh,calc(100dvh - 390px))!important;
+    min-height:200px!important;
+    aspect-ratio:auto!important;
+  }
+}
+\n\n/* v1.13.3 — participant gallery overflow-gated scrolling.\n   The scrollbar must be completely inactive when every participant tile fits.\n   Once the rendered tiles exceed the viewport, the gallery becomes the only\n   vertical scroll surface. This works with mouse wheel over the tile itself\n   and with finger swipes on phones/tablets. */\n.stage:not(.pinned) .thumbs.scroll-disabled,\n.stage:not(.pinned) .thumbs.full-gallery.scroll-disabled,\n.stage:not(.pinned) .thumbs.with-screen.scroll-disabled{\n  overflow-y:hidden!important;\n  overflow-x:hidden!important;\n  touch-action:auto!important;\n  overscroll-behavior:none!important;\n  scrollbar-gutter:auto!important;\n  scrollbar-width:none!important;\n}\n.stage:not(.pinned) .thumbs.scroll-disabled::-webkit-scrollbar,\n.stage:not(.pinned) .thumbs.full-gallery.scroll-disabled::-webkit-scrollbar,\n.stage:not(.pinned) .thumbs.with-screen.scroll-disabled::-webkit-scrollbar{\n  width:0!important;height:0!important;display:none!important;\n}\n.stage:not(.pinned) .thumbs.scroll-enabled,\n.stage:not(.pinned) .thumbs.full-gallery.scroll-enabled,\n.stage:not(.pinned) .thumbs.with-screen.scroll-enabled{\n  overflow-y:auto!important;\n  overflow-x:hidden!important;\n  touch-action:pan-y!important;\n  overscroll-behavior-y:contain!important;\n  overscroll-behavior-x:none!important;\n  -webkit-overflow-scrolling:touch!important;\n  scrollbar-gutter:stable!important;\n  scrollbar-width:auto!important;\n}\n.stage:not(.pinned) .thumbs.scroll-enabled::-webkit-scrollbar,\n.stage:not(.pinned) .thumbs.full-gallery.scroll-enabled::-webkit-scrollbar,\n.stage:not(.pinned) .thumbs.with-screen.scroll-enabled::-webkit-scrollbar{\n  width:9px!important;height:0!important;display:block!important;\n}\n.stage:not(.pinned) .thumbs.scroll-enabled::-webkit-scrollbar-thumb,\n.stage:not(.pinned) .thumbs.full-gallery.scroll-enabled::-webkit-scrollbar-thumb,\n.stage:not(.pinned) .thumbs.with-screen.scroll-enabled::-webkit-scrollbar-thumb{\n  background:#4a6875!important;border-radius:999px!important;border:2px solid #101c22!important;\n}\n
+/* v1.14.0 — Meet-style meeting redesign + true overflow-gated participant scrolling
+   The gallery is NEVER a scroll container until its rendered tiles actually overflow.
+   Desktop wheel and mobile/tablet finger scrolling are supported inside the gallery. */
+.meeting{
+  min-height:calc(100dvh - 72px)!important;
+  background:#071116!important;
+  color:#eef8fb!important;
+  padding:0 0 14px!important;
+}
+.meeting-head{
+  height:64px!important;
+  padding:0 24px!important;
+  background:rgba(7,17,22,.96)!important;
+  border-bottom:1px solid #20333d!important;
+  position:sticky!important;
+  top:0!important;
+  z-index:40!important;
+  backdrop-filter:blur(14px)!important;
+}
+.meeting-head b{font-size:16px!important;letter-spacing:.01em}
+.meeting-head .muted{color:#8ea5af!important}
+.meeting-head .live{color:#24d79a!important}
+.connection-pill{color:#9db2bb!important}
+
+.stage:not(.pinned){
+  width:min(1500px,100%)!important;
+  min-height:0!important;
+  height:calc(100dvh - 190px)!important;
+  max-height:none!important;
+  margin:0 auto!important;
+  padding:14px 18px 8px!important;
+  gap:12px!important;
+  background:#071116!important;
+  overflow:hidden!important;
+}
+
+/* No shared screen: participants become the main meeting canvas. */
+.stage.gallery-only:not(.pinned){
+  display:block!important;
+  height:calc(100dvh - 190px)!important;
+  min-height:0!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs{
+  width:100%!important;
+  height:100%!important;
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  grid-auto-rows:minmax(150px,1fr)!important;
+  gap:12px!important;
+  align-content:start!important;
+  padding:2px!important;
+}
+.stage.gallery-only:not(.pinned) .thumb{
+  width:100%!important;
+  height:auto!important;
+  min-height:150px!important;
+  border-radius:15px!important;
+  background:#142229!important;
+  border:1px solid #263b45!important;
+}
+
+/* Shared screen: large presentation on top, compact participant tray underneath. */
+.stage.screen-active:not(.pinned){
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  grid-template-rows:minmax(0,1fr) minmax(118px,23dvh)!important;
+  height:calc(100dvh - 190px)!important;
+}
+.stage.screen-active:not(.pinned) .main-tile{
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  max-height:none!important;
+  aspect-ratio:auto!important;
+  border-radius:18px!important;
+  background:#02070a!important;
+  border:1px solid #263941!important;
+  box-shadow:0 16px 50px rgba(0,0,0,.35)!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen{
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  max-height:none!important;
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(150px,1fr))!important;
+  grid-auto-rows:105px!important;
+  gap:9px!important;
+  padding:2px 2px 8px!important;
+  align-content:start!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{
+  width:100%!important;
+  height:105px!important;
+  min-height:105px!important;
+  border-radius:13px!important;
+  background:#142229!important;
+  border:1px solid #263b45!important;
+}
+
+/* The actual gate: no overflow = no scrollbar, no scroll gesture consumed. */
+.stage:not(.pinned) .thumbs.scroll-disabled{
+  overflow:hidden!important;
+  overflow-y:hidden!important;
+  overflow-x:hidden!important;
+  touch-action:auto!important;
+  overscroll-behavior:auto!important;
+  scrollbar-width:none!important;
+  scrollbar-gutter:auto!important;
+}
+.stage:not(.pinned) .thumbs.scroll-disabled::-webkit-scrollbar{width:0!important;height:0!important;display:none!important}
+
+/* Overflow detected by React = scrolling enabled. */
+.stage:not(.pinned) .thumbs.scroll-enabled{
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  touch-action:pan-y!important;
+  overscroll-behavior-y:contain!important;
+  overscroll-behavior-x:none!important;
+  -webkit-overflow-scrolling:touch!important;
+  scrollbar-width:thin!important;
+  scrollbar-gutter:stable!important;
+}
+.stage:not(.pinned) .thumbs.scroll-enabled::-webkit-scrollbar{width:8px!important;height:0!important}
+.stage:not(.pinned) .thumbs.scroll-enabled::-webkit-scrollbar-track{background:transparent!important}
+.stage:not(.pinned) .thumbs.scroll-enabled::-webkit-scrollbar-thumb{background:#47636e!important;border-radius:999px!important}
+
+/* Keep videos from intercepting the intended wheel/touch gesture. */
+.stage:not(.pinned) .thumbs .thumb,
+.stage:not(.pinned) .thumbs .thumb-video,
+.stage:not(.pinned) .thumbs .thumb-video video,
+.stage:not(.pinned) .thumbs .participant-avatar-fallback{
+  overscroll-behavior:inherit!important;
+}
+.stage:not(.pinned) .thumbs .thumb-video video{pointer-events:none!important}
+
+/* Modern Google-Meet-like control tray. */
+.meeting-bottom{
+  width:min(1500px,100%)!important;
+  margin:0 auto!important;
+  padding:0 18px!important;
+}
+.meeting-controls{
+  min-height:64px!important;
+  padding:8px 12px!important;
+  border:1px solid #243740!important;
+  background:#101c22!important;
+  border-radius:18px!important;
+  box-shadow:0 12px 32px rgba(0,0,0,.25)!important;
+}
+.meeting-controls .control{
+  background:#182930!important;
+  border-color:#304650!important;
+  border-radius:14px!important;
+}
+.meeting-controls .control:hover{background:#203640!important}
+.meeting-controls .control.active{background:#0d6f88!important;border-color:#1aa9c7!important}
+.meeting-controls .end-control{background:#b93438!important;border-color:#d94b4f!important}
+.host-note{display:none!important}
+.audio-note{color:#718792!important;margin:.3rem auto .5rem!important}
+
+@media (max-width:1100px){
+  .stage:not(.pinned){
+    height:calc(100dvh - 178px)!important;
+    padding:10px!important;
+  }
+  .stage.gallery-only:not(.pinned){height:calc(100dvh - 178px)!important}
+  .stage.gallery-only:not(.pinned) .thumbs{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    grid-auto-rows:minmax(125px,1fr)!important;
+  }
+  .stage.screen-active:not(.pinned){
+    grid-template-rows:minmax(0,1fr) minmax(120px,28dvh)!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen{
+    grid-template-columns:repeat(3,minmax(120px,1fr))!important;
+    grid-auto-rows:96px!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:96px!important;min-height:96px!important}
+}
+
+@media (max-width:700px){
+  .meeting{min-height:100dvh!important;padding-bottom:8px!important}
+  .meeting-head{min-height:56px!important;height:56px!important;padding:0 12px!important}
+  .meeting-head b{font-size:14px!important}
+  .stage:not(.pinned){
+    height:calc(100dvh - 142px)!important;
+    padding:7px!important;
+    gap:8px!important;
+  }
+  .stage.gallery-only:not(.pinned){height:calc(100dvh - 142px)!important}
+  .stage.gallery-only:not(.pinned) .thumbs{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-rows:minmax(105px,1fr)!important;
+    gap:8px!important;
+  }
+  .stage.gallery-only:not(.pinned) .thumb{min-height:105px!important;border-radius:12px!important}
+  .stage.screen-active:not(.pinned){
+    grid-template-rows:minmax(0,1fr) minmax(115px,28dvh)!important;
+  }
+  .stage.screen-active:not(.pinned) .main-tile{
+    border-radius:13px!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen{
+    grid-template-columns:repeat(2,minmax(110px,1fr))!important;
+    grid-auto-rows:90px!important;
+    gap:7px!important;
+    padding-bottom:6px!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb{height:90px!important;min-height:90px!important;border-radius:11px!important}
+  .meeting-bottom{padding:0 8px!important}
+  .meeting-controls{justify-content:flex-start!important;overflow-x:auto!important;overflow-y:hidden!important;flex-wrap:nowrap!important;border-radius:15px!important;padding:7px!important}
+  .meeting-controls .control{flex:0 0 auto!important;min-width:68px!important;height:46px!important}
+}
+
+@media (max-width:420px){
+  .stage:not(.pinned){height:calc(100dvh - 136px)!important}
+  .stage.gallery-only:not(.pinned){height:calc(100dvh - 136px)!important}
+  .stage.gallery-only:not(.pinned) .thumbs{grid-auto-rows:90px!important}
+  .stage.gallery-only:not(.pinned) .thumb{min-height:90px!important}
+  .stage.screen-active:not(.pinned){grid-template-rows:minmax(0,1fr) minmax(105px,27dvh)!important}
+}
+
+/* v1.14.1 — final Meet-style meeting canvas
+   Screen share: large presentation on top + participant tray below.
+   Participant scrolling is gated by the React .needs-scroll class.
+   This block intentionally comes last so it wins over legacy layout rules. */
+.meeting {
+  background:#071017!important;
+  color:#edf7fb!important;
+  min-height:calc(100dvh - 72px)!important;
+  padding:0 0 14px!important;
+}
+.meeting-head {
+  width:100%!important;
+  box-sizing:border-box!important;
+  margin:0!important;
+  border-radius:0!important;
+  border-left:0!important;
+  border-right:0!important;
+  border-top:0!important;
+  padding:14px 20px!important;
+  background:#09151d!important;
+  box-shadow:0 1px 0 rgba(255,255,255,.05)!important;
+}
+
+/* Screen-share view: presentation first, participant tray underneath. */
+.stage.screen-active:not(.pinned) {
+  box-sizing:border-box!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  grid-template-rows:minmax(0,1fr) 156px!important;
+  width:100%!important;
+  height:calc(100dvh - 205px)!important;
+  min-height:420px!important;
+  max-height:none!important;
+  padding:12px 16px 0!important;
+  gap:10px!important;
+  overflow:hidden!important;
+  background:#071017!important;
+}
+.stage.screen-active:not(.pinned) .main-tile {
+  grid-column:1!important;
+  grid-row:1!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-height:none!important;
+  aspect-ratio:auto!important;
+  border-radius:16px!important;
+  background:#02070a!important;
+  border:1px solid #243b47!important;
+  box-shadow:0 12px 36px rgba(0,0,0,.35)!important;
+}
+.stage.screen-active:not(.pinned) .main-tile .live-video-wrap.screen-video,
+.stage.screen-active:not(.pinned) .main-tile .live-video-wrap.screen-video video {
+  width:100%!important;
+  height:100%!important;
+}
+.stage.screen-active:not(.pinned) .main-tile .live-video-wrap.screen-video video {
+  object-fit:contain!important;
+  object-position:center!important;
+  background:#02070a!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen {
+  grid-column:1!important;
+  grid-row:2!important;
+  width:100%!important;
+  height:156px!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-height:156px!important;
+  box-sizing:border-box!important;
+  display:grid!important;
+  grid-template-columns:repeat(6,minmax(120px,1fr))!important;
+  grid-auto-rows:100px!important;
+  grid-auto-flow:row!important;
+  align-content:start!important;
+  gap:8px!important;
+  padding:2px 3px 8px!important;
+  overscroll-behavior-y:contain!important;
+  touch-action:pan-y!important;
+  -webkit-overflow-scrolling:touch!important;
+  scrollbar-gutter:auto!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-disabled {
+  overflow:hidden!important;
+  scrollbar-width:none!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-disabled::-webkit-scrollbar {display:none!important;width:0!important;height:0!important}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-enabled {
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  scrollbar-width:thin!important;
+}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-enabled::-webkit-scrollbar {width:8px!important;height:0!important}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-enabled::-webkit-scrollbar-track {background:transparent!important}
+.stage.screen-active:not(.pinned) .thumbs.with-screen.scroll-enabled::-webkit-scrollbar-thumb {background:#496673!important;border-radius:999px!important}
+.stage.screen-active:not(.pinned) .thumbs.with-screen .thumb {
+  width:100%!important;
+  height:100px!important;
+  min-height:100px!important;
+  max-height:100px!important;
+  aspect-ratio:auto!important;
+  border-radius:12px!important;
+  padding:6px!important;
+  background:linear-gradient(145deg,#172832,#101d25)!important;
+  border:1px solid #29424e!important;
+}
+
+/* No screen share: participant gallery fills the stage. */
+.stage.gallery-only:not(.pinned) {
+  box-sizing:border-box!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  grid-template-rows:minmax(0,1fr)!important;
+  width:100%!important;
+  height:calc(100dvh - 205px)!important;
+  min-height:420px!important;
+  max-height:none!important;
+  padding:14px 16px 0!important;
+  overflow:hidden!important;
+  background:#071017!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery {
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-height:none!important;
+  box-sizing:border-box!important;
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  grid-auto-rows:minmax(150px,1fr)!important;
+  grid-auto-flow:row!important;
+  align-content:start!important;
+  gap:12px!important;
+  padding:2px 4px 12px!important;
+  overscroll-behavior-y:contain!important;
+  touch-action:pan-y!important;
+  -webkit-overflow-scrolling:touch!important;
+  scrollbar-gutter:auto!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-disabled {
+  overflow:hidden!important;
+  scrollbar-width:none!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-disabled::-webkit-scrollbar {display:none!important;width:0!important;height:0!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-enabled {
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  scrollbar-width:thin!important;
+}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-enabled::-webkit-scrollbar {width:8px!important;height:0!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-enabled::-webkit-scrollbar-track {background:transparent!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery.scroll-enabled::-webkit-scrollbar-thumb {background:#496673!important;border-radius:999px!important}
+.stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb {
+  width:100%!important;
+  min-width:0!important;
+  min-height:150px!important;
+  height:100%!important;
+  aspect-ratio:auto!important;
+  border-radius:15px!important;
+  padding:8px!important;
+  background:linear-gradient(145deg,#172832,#101d25)!important;
+  border:1px solid #29424e!important;
+}
+
+/* Keep the bottom meeting controls visually separated from the canvas. */
+.meeting-bottom {
+  background:#09151d!important;
+  border-top:1px solid #1c303b!important;
+  padding:6px 12px 10px!important;
+}
+.meeting-controls {
+  background:transparent!important;
+  padding:6px 0!important;
+}
+
+@media (max-width:1100px) {
+  .stage.screen-active:not(.pinned) {
+    height:calc(100dvh - 185px)!important;
+    min-height:360px!important;
+    grid-template-rows:minmax(0,1fr) 150px!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen {
+    height:150px!important;
+    max-height:150px!important;
+    grid-template-columns:repeat(4,minmax(105px,1fr))!important;
+    grid-auto-rows:94px!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb {
+    height:94px!important;
+    min-height:94px!important;
+    max-height:94px!important;
+  }
+  .stage.gallery-only:not(.pinned) {
+    height:calc(100dvh - 185px)!important;
+    min-height:360px!important;
+  }
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery {
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    grid-auto-rows:minmax(120px,1fr)!important;
+  }
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb {min-height:120px!important}
+}
+
+@media (max-width:700px) {
+  .meeting-head {padding:10px 12px!important}
+  .stage.screen-active:not(.pinned) {
+    height:calc(100dvh - 165px)!important;
+    min-height:0!important;
+    grid-template-rows:minmax(190px,1fr) 190px!important;
+    padding:8px!important;
+    gap:8px!important;
+  }
+  .stage.screen-active:not(.pinned) .main-tile {border-radius:13px!important}
+  .stage.screen-active:not(.pinned) .thumbs.with-screen {
+    height:190px!important;
+    max-height:190px!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-rows:82px!important;
+    gap:7px!important;
+    padding:2px 2px 10px!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb {
+    height:82px!important;
+    min-height:82px!important;
+    max-height:82px!important;
+    border-radius:11px!important;
+  }
+  .stage.gallery-only:not(.pinned) {
+    height:calc(100dvh - 165px)!important;
+    min-height:0!important;
+    padding:8px!important;
+  }
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery {
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-rows:100px!important;
+    gap:7px!important;
+  }
+  .stage.gallery-only:not(.pinned) .thumbs.full-gallery .thumb {
+    min-height:100px!important;
+    height:100px!important;
+    border-radius:11px!important;
+  }
+  .meeting-bottom {padding:4px 8px calc(7px + env(safe-area-inset-bottom))!important}
+}
+
+@media (max-width:380px) {
+  .stage.screen-active:not(.pinned) {
+    grid-template-rows:minmax(175px,1fr) 175px!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen {
+    height:175px!important;
+    max-height:175px!important;
+    grid-auto-rows:76px!important;
+  }
+  .stage.screen-active:not(.pinned) .thumbs.with-screen .thumb {height:76px!important;min-height:76px!important;max-height:76px!important}
 }

@@ -879,6 +879,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  useEffect(()=>{
    const el=galleryRef.current;
    if(!el)return;
+   if(!galleryNeedsScroll) el.scrollTop=0;
    checkGalleryOverflow();
    const ro=new ResizeObserver(()=>checkGalleryOverflow());
    ro.observe(el);
@@ -921,11 +922,25 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
  };
  useEffect(()=>{
    const el=galleryRef.current;
-   if(!el || !galleryNeedsScroll)return;
-   const onWheel=(event)=>handleGalleryWheel(event);
+   if(!el)return;
+   // Always listen at the gallery boundary. The previous implementation only
+   // attached the wheel listener after React had already decided that the
+   // gallery overflowed, which could leave a tile under the cursor with no
+   // scroll handler during the first render/layout pass. We now calculate the
+   // current overflow at the moment the wheel event arrives.
+   const onWheel=(event)=>{
+     const maxScroll=Math.max(0,el.scrollHeight-el.clientHeight);
+     if(maxScroll<=1 || !event.deltaY)return;
+     const before=el.scrollTop;
+     const next=Math.max(0,Math.min(maxScroll,before+event.deltaY));
+     if(next===before)return;
+     el.scrollTop=next;
+     event.preventDefault();
+     event.stopPropagation();
+   };
    el.addEventListener('wheel',onWheel,{capture:true,passive:false});
    return()=>el.removeEventListener('wheel',onWheel,true);
- },[galleryNeedsScroll]);
+ },[]);
  const toggleScreenFullscreen=()=>{
    // App fullscreen avoids the browser/Android instructional banner.
    setScreenFullscreen(v=>!v);
@@ -939,7 +954,7 @@ function Meeting({role,name,room,avatar,camera,mic,sharing,pinned,setCamera,setM
    <div className="meeting-head"><div><b>{room.title}</b><span className="muted"> • {room.participants}/50</span></div><span className={connection==='connected'?'live':'connection-pill'}>{connection==='connected'?'● LIVE':connection==='connecting'?'Connecting…':connection.startsWith('error:')?'Connection error':'Reconnecting…'}</span></div>
    {connection.startsWith('error:')&&<div className="meeting-error">{connection.slice(6)}<button className="ghost small" onClick={()=>window.location.reload()}>Reload</button></div>}
    <div className={`stage ${pinned&&mainScreen?'pinned':''} ${showingScreen?'screen-active':'gallery-only'} ${gallerySizeClass}`} data-participant-count={participantCount}>
-     {showingScreen&&<div ref={mainTileRef} className={`main-tile ${screenFullscreen?'app-fullscreen':''}`} style={{'--screen-aspect':screenAspect}}>
+     {showingScreen&&<div ref={mainTileRef} className={`main-tile ${screenFullscreen?'app-fullscreen':''}`}>
        <LiveVideo key={`screen-${screenEpoch}-${mainScreen?.sid||mainScreen?.mediaStreamTrack?.id||'active'}`} track={mainScreen} className="screen-video" onAspectRatio={setScreenAspect} />
        <div className="reaction-layer" aria-live="polite">{reactions.map((r,i)=><div className="floating-reaction" style={{left:`${8+((i*19+Math.floor((r.seed||0)*31))%82)}%`,animationDelay:`${(i%3)*65}ms`}} key={r.id} title={`${r.name}: ${r.emoji}`}><span className="reaction-glow"/><span className="reaction-ring"/><span className="reaction-particle p1"/><span className="reaction-particle p2"/><span className="reaction-particle p3"/><span className="reaction-emoji">{r.emoji}</span></div>)}</div>{chatNotice&&<div className="chat-notice-pop" role="status" aria-live="polite"><span className="chat-notice-icon"><MeetingIcon type="chat"/></span><span className="chat-notice-copy"><b>{chatNotice.name}</b><span>{chatNotice.text}</span></span></div>}
        <button type="button" className="screen-fit-button" aria-label={screenFullscreen?'Exit full screen':'Full screen shared screen'} title={screenFullscreen?'Exit full screen':'Full screen'} onClick={toggleScreenFullscreen}><MeetingIcon type={screenFullscreen?'fullscreenExit':'fullscreen'}/></button>
